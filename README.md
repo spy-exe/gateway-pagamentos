@@ -303,7 +303,7 @@ dois últimos sob systemd com reinício automático nas unidades `gateway-pagame
 documentação para a API, de modo que painel e API compartilham a mesma origem e não existe CORS no
 caminho.
 
-- Painel: https://gateway-aula.malha.app
+- Painel: https://api-gateway-aula.malha.app
 - API e documentação: https://api-gateway-aula.malha.app/swagger-ui.html
 
 As credenciais de banco e o segredo do JWT ficam fora do repositório, em um arquivo de ambiente lido
