@@ -13,20 +13,22 @@ testar tanto o caminho feliz quanto cada tipo de recusa.
 **Matrícula:** 202310773
 **Disciplina:** Laboratório de Desenvolvimento de Aplicações Nativas
 
-## Conta de demonstracao
+## Demonstração em produção
 
-Ha uma conta ja povoada com 36 cobrancas espalhadas pelos ultimos quarenta e
-cinco dias, cobrindo aprovacao, recusa por cada motivo, captura manual,
-cancelamento e estorno parcial e total.
+Para visualizar o painel já preenchido, acesse a aplicação com a conta abaixo:
 
-```
-https://gateway-aula.malha.app
-e-mail: demo@aval.app
-senha:  demonstracao2026
-```
+| Acesso | Valor |
+|---|---|
+| Aplicação | [gateway-aula.malha.app](https://gateway-aula.malha.app) |
+| E-mail | `demo@aval.app` |
+| Senha | `demonstracao2026` |
 
-A conta e publica de proposito, para que a avaliacao nao dependa de cadastro. O
-que estiver la pode ser alterado por qualquer pessoa que abra o link, e nada
+A conta possui 36 cobranças distribuídas pelos últimos quarenta e cinco dias,
+incluindo aprovações, recusas por cada motivo, captura manual, cancelamento e
+estornos parciais e totais.
+
+A conta é pública de propósito, para que a avaliação não dependa de cadastro. O
+que estiver nela pode ser alterado por qualquer pessoa que abra o link, e nada
 disso movimenta dinheiro. Para refazer o povoamento do zero:
 `cd web && npm run semear`.
 
