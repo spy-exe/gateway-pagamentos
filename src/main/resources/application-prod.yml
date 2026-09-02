@@ -1,0 +1,24 @@
+spring:
+  datasource:
+    url: ${GATEWAY_DB_URL}
+    username: ${GATEWAY_DB_USUARIO}
+    password: ${GATEWAY_DB_SENHA}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+gateway:
+  jwt:
+    segredo: ${GATEWAY_JWT_SEGREDO}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    root: WARN
+    br.com.ricardofigueiredo.gateway: INFO
