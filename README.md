@@ -13,6 +13,54 @@ testar tanto o caminho feliz quanto cada tipo de recusa.
 **Matrícula:** 202310773
 **Disciplina:** Laboratório de Desenvolvimento de Aplicações Nativas
 
+## Conta de demonstracao
+
+Ha uma conta ja povoada com 36 cobrancas espalhadas pelos ultimos quarenta e
+cinco dias, cobrindo aprovacao, recusa por cada motivo, captura manual,
+cancelamento e estorno parcial e total.
+
+```
+https://gateway-aula.malha.app
+e-mail: demo@aval.app
+senha:  demonstracao2026
+```
+
+A conta e publica de proposito, para que a avaliacao nao dependa de cadastro. O
+que estiver la pode ser alterado por qualquer pessoa que abra o link, e nada
+disso movimenta dinheiro. Para refazer o povoamento do zero:
+`cd web && npm run semear`.
+
+## Painel
+
+O repositorio traz tambem o painel em Next.js que consome esta API, na pasta
+`web/`. Ele tem identidade propria, chamada **Aval**, documentada em
+`web/MARCA.md`: nome, simbolo, paleta, tipografia, regras de movimento e voz.
+
+A peca tridimensional da tela de entrada e um cartao de metal gravado em
+guilhoche, o mesmo desenho de linhas concentricas de cedula e apolice,
+calculado curva por curva em um shader com Three.js. Ela nao gira sozinha, gira
+quando arrastada, e o verso tem tarja, painel de assinatura e letra miuda. No
+formulario de nova cobranca a mesma peca reflete o que esta sendo digitado,
+mostrando bandeira e numero na hora.
+
+O momento da marca e o carimbo de aval, que bate no comprovante quando a
+transacao e aprovada.
+
+```bash
+cd web
+npm install
+npm run dev     # painel em localhost:3000, com a API em localhost:8080
+npm run prints  # percorre o painel em Chromium headless e grava as telas
+```
+
+Telas em `web/prints/`.
+
+![Tela de entrada](web/prints/01-entrada.png)
+
+![Extrato da conta de demonstracao](web/prints/12-demo-razao.png)
+
+![Comprovante com o carimbo de aval](web/prints/06-comprovante-capturada.png)
+
 ## Stack
 
 - Java 21
@@ -58,6 +106,11 @@ São 42 testes divididos em três níveis: as regras de cartão e do autorizador
 a máquina de estados da cobrança em cima da entidade de domínio e o fluxo completo em testes de
 integração que sobem o contexto do Spring e chamam a API por HTTP, usando as mesmas migrations do Flyway
 que rodam em produção.
+
+O JaCoCo mede a cobertura e o relatório sai em `target/site/jacoco/index.html`. Hoje o projeto está em
+**92,9% de instruções e 85,5% de ramos**, e `./mvnw verify` reprova abaixo disso. O que falta coberto são
+caminhos de borda que ainda não têm teste: o `main`, o filtro JWT com token de usuário removido, alguns
+acessores de entidade e o tratamento de erro de conflito.
 
 ## Autenticação
 
@@ -243,7 +296,15 @@ src/main/java/br/com/ricardofigueiredo/gateway
 
 ## Onde está rodando
 
-A aplicação está publicada em um container LXC dentro de um Proxmox VE, com PostgreSQL local, empacotada
-como jar e gerenciada pelo systemd na unidade `gateway-pagamentos.service`, com reinício automático em
-caso de falha. As credenciais de banco e o segredo do JWT ficam fora do repositório, em um arquivo de
-ambiente lido pela unidade.
+A aplicação está publicada em um container LXC dentro de um Proxmox VE. Dentro do container há três
+processos: o PostgreSQL, a API empacotada como jar na porta 8081 e o painel Next.js na porta 3000, os
+dois últimos sob systemd com reinício automático nas unidades `gateway-pagamentos.service` e
+`gateway-web.service`. Um nginx na frente serve o painel em `/` e encaminha `/api`, `/saude` e a
+documentação para a API, de modo que painel e API compartilham a mesma origem e não existe CORS no
+caminho.
+
+- Painel: https://gateway-aula.malha.app
+- API e documentação: https://api-gateway-aula.malha.app/swagger-ui.html
+
+As credenciais de banco e o segredo do JWT ficam fora do repositório, em um arquivo de ambiente lido
+pelas unidades do systemd.
