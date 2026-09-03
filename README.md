@@ -108,14 +108,14 @@ As tabelas são criadas pelo Flyway na subida, a partir de `src/main/resources/d
 ./mvnw test
 ```
 
-São 143 testes divididos em três níveis: as regras de cartão e do autorizador em testes de unidade puros,
+São 144 testes divididos em três níveis: as regras de cartão e do autorizador em testes de unidade puros,
 a máquina de estados da cobrança em cima da entidade de domínio e o fluxo completo em testes de
 integração que sobem o contexto do Spring e chamam a API por HTTP, usando as mesmas migrations do Flyway
 que rodam em produção.
 
 O JaCoCo mede a cobertura e o relatório sai em `target/site/jacoco/index.html`. O `./mvnw verify`
 reprova se o projeto cair abaixo de **90% de instruções ou 82% de ramos**. No build atual são
-**95,77% de instruções e 83,57% de ramos**.
+**95,60% de instruções e 83,33% de ramos**.
 
 ## Autenticação
 

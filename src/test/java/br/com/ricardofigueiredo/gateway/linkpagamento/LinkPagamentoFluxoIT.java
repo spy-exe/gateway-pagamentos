@@ -13,6 +13,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 import java.util.UUID;
 
@@ -68,6 +69,23 @@ class LinkPagamentoFluxoIT {
                 .andExpect(jsonPath("$.status").value("CAPTURADA"))
                 .andExpect(jsonPath("$.pixCopiaECola").isNotEmpty())
                 .andExpect(jsonPath("$.codigoDoLinkPagamento").value(codigo));
+    }
+
+    @Test
+    @DisplayName("a origem do link fica disponivel na listagem fora da sessao do banco")
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void listaOrigemSemOpenSessionInView() throws Exception {
+        String token = autenticar();
+        String codigo = ler(criarLink(token, "PIX", 1, null)).get("codigo").asText();
+
+        mockMvc.perform(post("/api/v1/links-pagamento/publicos/" + codigo + "/finalizacao")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/v1/cobrancas").header(HttpHeaders.AUTHORIZATION, token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.itens[0].codigoDoLinkPagamento").value(codigo));
     }
 
     @Test

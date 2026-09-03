@@ -1,6 +1,10 @@
 package br.com.ricardofigueiredo.gateway.cobranca;
 
 import br.com.ricardofigueiredo.gateway.usuario.Usuario;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -13,9 +17,15 @@ import java.util.Optional;
 
 public interface CobrancaRepository extends JpaRepository<Cobranca, Long>, JpaSpecificationExecutor<Cobranca> {
 
+    @EntityGraph(attributePaths = "linkPagamento")
     Optional<Cobranca> findByCodigoAndUsuario(String codigo, Usuario usuario);
 
+    @EntityGraph(attributePaths = "linkPagamento")
     Optional<Cobranca> findByUsuarioAndChaveIdempotencia(Usuario usuario, String chaveIdempotencia);
+
+    @Override
+    @EntityGraph(attributePaths = "linkPagamento")
+    Page<Cobranca> findAll(Specification<Cobranca> specification, Pageable pageable);
 
     /**
      * Uma varredura no banco em vez de trazer as linhas e somar em memoria. Com
