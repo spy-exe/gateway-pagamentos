@@ -19,7 +19,8 @@ public final class CobrancaSpecs {
     }
 
     public static Specification<Cobranca> de(Usuario usuario, StatusCobranca status, MetodoPagamento metodo,
-                                             Instant desde, Instant ate, String busca) {
+                                             Instant desde, Instant ate, String busca,
+                                             Long valorMinimo, Long valorMaximo) {
         List<Specification<Cobranca>> criterios = new ArrayList<>();
         criterios.add(doUsuario(usuario));
 
@@ -35,14 +36,30 @@ public final class CobrancaSpecs {
         if (ate != null) {
             criterios.add((raiz, consulta, cb) -> cb.lessThanOrEqualTo(raiz.get("criadoEm"), ate));
         }
+        if (valorMinimo != null) {
+            criterios.add((raiz, consulta, cb) -> cb.greaterThanOrEqualTo(
+                    raiz.get("valorEmCentavos"), valorMinimo));
+        }
+        if (valorMaximo != null) {
+            criterios.add((raiz, consulta, cb) -> cb.lessThanOrEqualTo(
+                    raiz.get("valorEmCentavos"), valorMaximo));
+        }
         if (busca != null && !busca.isBlank()) {
             String alvo = "%" + busca.trim().toLowerCase(Locale.ROOT) + "%";
             criterios.add((raiz, consulta, cb) -> cb.or(
                     cb.like(cb.lower(raiz.get("descricao")), alvo),
-                    cb.like(cb.lower(raiz.get("codigo")), alvo)));
+                    cb.like(cb.lower(raiz.get("codigo")), alvo),
+                    cb.like(cb.lower(raiz.get("codigoAutorizacao")), alvo),
+                    cb.like(cb.lower(raiz.get("chaveIdempotencia")), alvo),
+                    cb.like(cb.lower(raiz.get("ultimosQuatro")), alvo)));
         }
 
         return Specification.allOf(criterios);
+    }
+
+    public static Specification<Cobranca> de(Usuario usuario, StatusCobranca status, MetodoPagamento metodo,
+                                             Instant desde, Instant ate, String busca) {
+        return de(usuario, status, metodo, desde, ate, busca, null, null);
     }
 
     public static Specification<Cobranca> doUsuario(Usuario usuario) {

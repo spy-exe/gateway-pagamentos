@@ -28,6 +28,9 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
           <Link href="/painel/nova" aria-current={caminho === "/painel/nova" ? "page" : undefined}>
             Nova cobranca
           </Link>
+          <Link href="/painel/links" aria-current={caminho === "/painel/links" ? "page" : undefined}>
+            Links
+          </Link>
           <Link href="/painel/webhooks" aria-current={caminho === "/painel/webhooks" ? "page" : undefined}>
             Webhooks
           </Link>

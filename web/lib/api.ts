@@ -70,6 +70,8 @@ export interface FiltroDeCobrancas {
   de?: string;
   ate?: string;
   busca?: string;
+  valorMinimo?: number;
+  valorMaximo?: number;
   tamanho?: number;
   pagina?: number;
 }
@@ -91,9 +93,38 @@ export interface Cobranca {
   valorDaParcelaEmCentavos: number;
   ajusteNaPrimeiraParcelaEmCentavos: number;
   pixCopiaECola?: string;
+  codigoDoLinkPagamento?: string;
   cartao?: DadosCartao;
   criadoEm: string;
   atualizadoEm: string;
+}
+
+export type SituacaoLinkPagamento = "ATIVO" | "PAUSADO" | "EXPIRADO" | "ESGOTADO";
+
+export interface LinkPagamento {
+  codigo: string;
+  descricao: string;
+  valorEmCentavos: number;
+  metodo: MetodoPagamento;
+  parcelasMaximas: number;
+  limiteDeUsos?: number;
+  usos: number;
+  ativo: boolean;
+  situacao: SituacaoLinkPagamento;
+  expiraEm?: string;
+  criadoEm: string;
+  atualizadoEm: string;
+}
+
+export interface CheckoutLinkPagamento {
+  codigo: string;
+  estabelecimento: string;
+  descricao: string;
+  valorEmCentavos: number;
+  metodo: MetodoPagamento;
+  parcelasMaximas: number;
+  situacao: SituacaoLinkPagamento;
+  expiraEm?: string;
 }
 
 export interface Evento {
@@ -197,6 +228,8 @@ function parametros(filtros: FiltroDeCobrancas): URLSearchParams {
   if (filtros.de) busca.set("de", filtros.de);
   if (filtros.ate) busca.set("ate", filtros.ate);
   if (filtros.busca) busca.set("busca", filtros.busca);
+  if (filtros.valorMinimo !== undefined) busca.set("valorMinimo", String(filtros.valorMinimo));
+  if (filtros.valorMaximo !== undefined) busca.set("valorMaximo", String(filtros.valorMaximo));
   busca.set("size", String(filtros.tamanho ?? 50));
   busca.set("page", String(filtros.pagina ?? 0));
   return busca;
@@ -219,6 +252,27 @@ export const api = {
     return requisicao<Pagina<Cobranca>>(`/api/v1/cobrancas?${parametros(filtros)}`, { token });
   },
 
+  async baixarExtrato(token: string, filtros: FiltroDeCobrancas = {}) {
+    const consulta = parametros(filtros);
+    consulta.delete("size");
+    consulta.delete("page");
+
+    let resposta: Response;
+    try {
+      resposta = await fetch(`/api/v1/cobrancas/extrato.csv?${consulta}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    } catch {
+      throw new ErroDaApi("Nao foi possivel gerar o extrato.", 0);
+    }
+
+    if (!resposta.ok) {
+      const dados = await resposta.json().catch(() => null);
+      throw new ErroDaApi(dados?.detail ?? "Nao foi possivel gerar o extrato.", resposta.status);
+    }
+    return resposta.blob();
+  },
+
   resumo(token: string, dias = 30) {
     return requisicao<ResumoDoPeriodo>(`/api/v1/cobrancas/resumo?dias=${dias}`, { token });
   },
@@ -233,6 +287,33 @@ export const api = {
 
   listarWebhooks(token: string) {
     return requisicao<EndpointWebhook[]>("/api/v1/webhooks", { token });
+  },
+
+  listarLinks(token: string) {
+    return requisicao<LinkPagamento[]>("/api/v1/links-pagamento", { token });
+  },
+
+  criarLink(token: string, corpo: unknown) {
+    return requisicao<LinkPagamento>("/api/v1/links-pagamento", { metodo: "POST", corpo, token });
+  },
+
+  alternarLink(token: string, codigo: string, ativo: boolean) {
+    return requisicao<LinkPagamento>(`/api/v1/links-pagamento/${codigo}/situacao?ativo=${ativo}`, {
+      metodo: "POST",
+      token
+    });
+  },
+
+  abrirLink(codigo: string) {
+    return requisicao<CheckoutLinkPagamento>(`/api/v1/links-pagamento/publicos/${codigo}`);
+  },
+
+  finalizarLink(codigo: string, corpo: unknown, chaveIdempotencia: string) {
+    return requisicao<Cobranca>(`/api/v1/links-pagamento/publicos/${codigo}/finalizacao`, {
+      metodo: "POST",
+      corpo,
+      chaveIdempotencia
+    });
   },
 
   criarWebhook(token: string, corpo: { url: string; descricao?: string }) {

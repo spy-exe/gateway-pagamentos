@@ -63,6 +63,14 @@ export default function Entrada() {
     setCampos({});
   }
 
+  function preencherDemonstracao() {
+    setAba("entrar");
+    setEmail("demo@aval.app");
+    setSenha("demonstracao2026");
+    setErro(null);
+    setCampos({});
+  }
+
   return (
     <main className="entrada">
       <section className="entrada-palco">
@@ -162,6 +170,19 @@ export default function Entrada() {
             {enviando ? "Um instante" : aba === "criar" ? "Criar conta e entrar" : "Entrar"}
           </button>
         </form>
+
+        {aba === "entrar" && (
+          <aside className="acesso-demo entra" style={{ animationDelay: "310ms" }}>
+            <div>
+              <span className="etiqueta">Visita guiada</span>
+              <p>Veja cobrancas, Pix, parcelamentos, webhooks e links ja em movimento.</p>
+              <code>demo@aval.app · demonstracao2026</code>
+            </div>
+            <button className="botao" data-tom="vazado" type="button" onClick={preencherDemonstracao}>
+              Preencher acesso
+            </button>
+          </aside>
+        )}
 
         <p className="etiqueta link-documentacao entra" style={{ animationDelay: "330ms" }}>
           <a href="/swagger-ui.html">Documentacao da API</a>

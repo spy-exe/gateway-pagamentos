@@ -2,6 +2,7 @@ package br.com.ricardofigueiredo.gateway.config;
 
 import br.com.ricardofigueiredo.gateway.seguranca.FiltroAutenticacaoJwt;
 import br.com.ricardofigueiredo.gateway.seguranca.RespostaNaoAutorizado;
+import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -23,6 +24,7 @@ public class SegurancaConfig {
             "/api/v1/autenticacao/registro",
             "/api/v1/autenticacao/login",
             "/api/v1/webhooks/eco",
+            "/api/v1/links-pagamento/publicos/**",
             "/v3/api-docs",
             "/v3/api-docs/**",
             "/swagger-ui.html",
@@ -44,6 +46,7 @@ public class SegurancaConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sessao -> sessao.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(rotas -> rotas
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                         .requestMatchers(ROTAS_PUBLICAS).permitAll()
                         .requestMatchers(HttpMethod.GET, "/saude").permitAll()
                         .anyRequest().authenticated())

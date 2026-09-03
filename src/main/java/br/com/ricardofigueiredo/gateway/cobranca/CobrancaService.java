@@ -12,6 +12,7 @@ import br.com.ricardofigueiredo.gateway.comum.excecao.ConflitoException;
 import br.com.ricardofigueiredo.gateway.comum.excecao.RecursoNaoEncontradoException;
 import br.com.ricardofigueiredo.gateway.comum.excecao.RegraDeNegocioException;
 import br.com.ricardofigueiredo.gateway.pix.BrCode;
+import br.com.ricardofigueiredo.gateway.linkpagamento.LinkPagamento;
 import br.com.ricardofigueiredo.gateway.usuario.Usuario;
 import br.com.ricardofigueiredo.gateway.webhook.EmissorDeEventos;
 import org.slf4j.Logger;
@@ -63,6 +64,12 @@ public class CobrancaService {
 
     @Transactional
     public ResultadoDaCriacao criar(Usuario usuario, CriarCobrancaRequest requisicao, String chaveIdempotencia) {
+        return criar(usuario, requisicao, chaveIdempotencia, null);
+    }
+
+    @Transactional
+    public ResultadoDaCriacao criar(Usuario usuario, CriarCobrancaRequest requisicao,
+                                    String chaveIdempotencia, LinkPagamento linkPagamento) {
         String chave = normalizarChave(chaveIdempotencia);
 
         if (chave != null) {
@@ -87,7 +94,8 @@ public class CobrancaService {
                 cartao,
                 chave,
                 parcelas,
-                resultado);
+                resultado,
+                linkPagamento);
 
         try {
             cobrancaRepository.saveAndFlush(cobranca);
@@ -180,8 +188,20 @@ public class CobrancaService {
 
     @Transactional(readOnly = true)
     public Page<Cobranca> listar(Usuario usuario, StatusCobranca status, MetodoPagamento metodo,
-                                 Instant desde, Instant ate, String busca, Pageable paginacao) {
-        return cobrancaRepository.findAll(CobrancaSpecs.de(usuario, status, metodo, desde, ate, busca), paginacao);
+                                 Instant desde, Instant ate, String busca, Long valorMinimo,
+                                 Long valorMaximo, Pageable paginacao) {
+        validarIntervaloDeValores(valorMinimo, valorMaximo);
+        return cobrancaRepository.findAll(
+                CobrancaSpecs.de(usuario, status, metodo, desde, ate, busca, valorMinimo, valorMaximo), paginacao);
+    }
+
+    private void validarIntervaloDeValores(Long minimo, Long maximo) {
+        if ((minimo != null && minimo < 0) || (maximo != null && maximo < 0)) {
+            throw new RegraDeNegocioException("Os valores do filtro nao podem ser negativos.");
+        }
+        if (minimo != null && maximo != null && minimo > maximo) {
+            throw new RegraDeNegocioException("O valor minimo nao pode ser maior que o maximo.");
+        }
     }
 
     @Transactional(readOnly = true)

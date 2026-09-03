@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import GraficoDeBandeiras from "@/components/GraficoDeBandeiras";
 import GraficoDeVolume from "@/components/GraficoDeVolume";
@@ -12,10 +12,11 @@ import {
   type Cobranca,
   type DiaDoMovimento,
   type FatiaDeBandeira,
+  type MetodoPagamento,
   type ResumoDoPeriodo,
   type StatusCobranca
 } from "@/lib/api";
-import { dataCurta, extratoEmCsv, moeda, rotuloMetodo } from "@/lib/formato";
+import { dataCurta, moeda, rotuloMetodo } from "@/lib/formato";
 import { lerSessao } from "@/lib/sessao";
 
 const FILTROS: Array<{ chave: string; rotulo: string }> = [
@@ -23,6 +24,8 @@ const FILTROS: Array<{ chave: string; rotulo: string }> = [
   { chave: "AUTORIZADA", rotulo: "Autorizadas" },
   { chave: "CAPTURADA", rotulo: "Capturadas" },
   { chave: "RECUSADA", rotulo: "Recusadas" },
+  { chave: "CANCELADA", rotulo: "Canceladas" },
+  { chave: "PARCIALMENTE_ESTORNADA", rotulo: "Estorno parcial" },
   { chave: "ESTORNADA", rotulo: "Estornadas" }
 ];
 
@@ -38,13 +41,28 @@ export default function ListaDeCobrancas() {
   const [movimento, setMovimento] = useState<DiaDoMovimento[]>([]);
   const [bandeiras, setBandeiras] = useState<FatiaDeBandeira[]>([]);
   const [filtro, setFiltro] = useState("");
+  const [metodo, setMetodo] = useState("");
   const [dias, setDias] = useState(30);
   const [busca, setBusca] = useState("");
   const [buscaAplicada, setBuscaAplicada] = useState("");
+  const [valorMinimo, setValorMinimo] = useState("");
+  const [valorMaximo, setValorMaximo] = useState("");
   const [carregando, setCarregando] = useState(true);
+  const [baixando, setBaixando] = useState(false);
+  const [paginaAtual, setPaginaAtual] = useState(0);
+  const [totalDePaginas, setTotalDePaginas] = useState(0);
+  const [totalDeItens, setTotalDeItens] = useState(0);
   const [erro, setErro] = useState<string | null>(null);
 
-  const carregar = useCallback(async (status: string, janela: number, termo: string) => {
+  const carregar = useCallback(async (
+    status: string,
+    forma: string,
+    janela: number,
+    termo: string,
+    minimo: string,
+    maximo: string,
+    pagina: number
+  ) => {
     const sessao = lerSessao();
     if (!sessao) return;
 
@@ -55,18 +73,25 @@ export default function ListaDeCobrancas() {
     inicio.setDate(inicio.getDate() - janela);
 
     try {
-      const [pagina, totais, porDia, porBandeira] = await Promise.all([
+      const [paginaDeCobrancas, totais, porDia, porBandeira] = await Promise.all([
         api.listarCobrancas(sessao.token, {
           status: status || undefined,
+          metodo: forma || undefined,
           busca: termo || undefined,
-          de: inicio.toISOString()
+          valorMinimo: minimo ? Number(minimo) : undefined,
+          valorMaximo: maximo ? Number(maximo) : undefined,
+          de: inicio.toISOString(),
+          tamanho: 20,
+          pagina
         }),
         api.resumo(sessao.token, janela),
         api.movimento(sessao.token, janela),
         api.bandeiras(sessao.token, janela)
       ]);
 
-      setCobrancas(pagina.itens);
+      setCobrancas(paginaDeCobrancas.itens);
+      setTotalDePaginas(paginaDeCobrancas.totalDePaginas);
+      setTotalDeItens(paginaDeCobrancas.totalDeItens);
       setResumo(totais);
       setMovimento(porDia);
       setBandeiras(porBandeira);
@@ -78,19 +103,41 @@ export default function ListaDeCobrancas() {
   }, []);
 
   useEffect(() => {
-    void carregar(filtro, dias, buscaAplicada);
-  }, [carregar, filtro, dias, buscaAplicada]);
+    void carregar(filtro, metodo, dias, buscaAplicada, valorMinimo, valorMaximo, paginaAtual);
+  }, [carregar, filtro, metodo, dias, buscaAplicada, valorMinimo, valorMaximo, paginaAtual]);
 
-  const csv = useMemo(() => extratoEmCsv(cobrancas as unknown as Array<Record<string, unknown>>), [cobrancas]);
+  async function baixarExtrato() {
+    const sessao = lerSessao();
+    if (!sessao) return;
 
-  function baixarExtrato() {
-    const arquivo = new Blob([`﻿${csv}`], { type: "text/csv;charset=utf-8" });
+    const inicio = new Date();
+    inicio.setDate(inicio.getDate() - dias);
+    setBaixando(true);
+    setErro(null);
+
+    let arquivo: Blob;
+    try {
+      arquivo = await api.baixarExtrato(sessao.token, {
+        status: filtro || undefined,
+        metodo: metodo || undefined,
+        busca: buscaAplicada || undefined,
+        valorMinimo: valorMinimo ? Number(valorMinimo) : undefined,
+        valorMaximo: valorMaximo ? Number(valorMaximo) : undefined,
+        de: inicio.toISOString()
+      });
+    } catch (falha) {
+      setErro(falha instanceof ErroDaApi ? falha.message : "Nao foi possivel gerar o extrato.");
+      setBaixando(false);
+      return;
+    }
+
     const endereco = URL.createObjectURL(arquivo);
     const ancora = document.createElement("a");
     ancora.href = endereco;
     ancora.download = `extrato-aval-${new Date().toISOString().slice(0, 10)}.csv`;
     ancora.click();
     URL.revokeObjectURL(endereco);
+    setBaixando(false);
   }
 
   return (
@@ -102,8 +149,8 @@ export default function ListaDeCobrancas() {
         </div>
         <div className="acoes-botoes">
           <button className="botao" data-tom="vazado" type="button" onClick={baixarExtrato}
-                  disabled={cobrancas.length === 0}>
-            Baixar extrato
+                  disabled={totalDeItens === 0 || baixando}>
+            {baixando ? "Gerando..." : "Baixar extrato"}
           </button>
           <Link className="botao" href="/painel/nova">
             Nova cobranca
@@ -118,7 +165,10 @@ export default function ListaDeCobrancas() {
             className="filtro"
             type="button"
             data-ativo={dias === periodo.dias ? "sim" : "nao"}
-            onClick={() => setDias(periodo.dias)}
+            onClick={() => {
+              setDias(periodo.dias);
+              setPaginaAtual(0);
+            }}
           >
             {periodo.rotulo}
           </button>
@@ -145,6 +195,7 @@ export default function ListaDeCobrancas() {
         className="barra-de-filtros"
         onSubmit={(evento) => {
           evento.preventDefault();
+          setPaginaAtual(0);
           setBuscaAplicada(busca);
         }}
       >
@@ -153,7 +204,7 @@ export default function ListaDeCobrancas() {
           <input
             value={busca}
             onChange={(evento) => setBusca(evento.target.value)}
-            placeholder="descricao ou codigo"
+            placeholder="codigo, autorizacao ou final do cartao"
           />
         </label>
         <button className="botao" data-tom="vazado" type="submit">
@@ -167,12 +218,58 @@ export default function ListaDeCobrancas() {
             onClick={() => {
               setBusca("");
               setBuscaAplicada("");
+              setPaginaAtual(0);
             }}
           >
             Limpar
           </button>
         )}
       </form>
+
+      <div className="barra-de-filtros barra-de-filtros-secundaria">
+        <label className="campo">
+          <span>Meio de pagamento</span>
+          <select
+            value={metodo}
+            onChange={(evento) => {
+              setMetodo(evento.target.value as MetodoPagamento | "");
+              setPaginaAtual(0);
+            }}
+          >
+            <option value="">Todos os meios</option>
+            <option value="PIX">Pix</option>
+            <option value="CARTAO_CREDITO">Cartao de credito</option>
+            <option value="CARTAO_DEBITO">Cartao de debito</option>
+          </select>
+        </label>
+        <label className="campo" data-mono="sim">
+          <span>Valor minimo</span>
+          <input
+            inputMode="numeric"
+            value={valorMinimo ? moeda(Number(valorMinimo)) : ""}
+            onChange={(evento) => {
+              setValorMinimo(evento.target.value.replace(/\D/g, "").slice(0, 12));
+              setPaginaAtual(0);
+            }}
+            placeholder="Sem minimo"
+          />
+        </label>
+        <label className="campo" data-mono="sim">
+          <span>Valor maximo</span>
+          <input
+            inputMode="numeric"
+            value={valorMaximo ? moeda(Number(valorMaximo)) : ""}
+            onChange={(evento) => {
+              setValorMaximo(evento.target.value.replace(/\D/g, "").slice(0, 12));
+              setPaginaAtual(0);
+            }}
+            placeholder="Sem maximo"
+          />
+        </label>
+        <p aria-live="polite">
+          {totalDeItens === 1 ? "1 cobranca encontrada" : `${totalDeItens} cobrancas encontradas`}
+        </p>
+      </div>
 
       <div className="filtros">
         {FILTROS.map((opcao) => (
@@ -181,7 +278,10 @@ export default function ListaDeCobrancas() {
             className="filtro"
             type="button"
             data-ativo={filtro === opcao.chave ? "sim" : "nao"}
-            onClick={() => setFiltro(opcao.chave)}
+            onClick={() => {
+              setFiltro(opcao.chave);
+              setPaginaAtual(0);
+            }}
           >
             {opcao.rotulo}
           </button>
@@ -195,7 +295,7 @@ export default function ListaDeCobrancas() {
       ) : cobrancas.length === 0 ? (
         <div className="vazio">
           <p>
-            {filtro || buscaAplicada
+            {filtro || metodo || buscaAplicada || valorMinimo || valorMaximo
               ? "Nenhuma cobranca encontrada com esses filtros."
               : "Voce ainda nao criou nenhuma cobranca."}
           </p>
@@ -204,8 +304,9 @@ export default function ListaDeCobrancas() {
           </Link>
         </div>
       ) : (
-        <div className="razao">
-          {cobrancas.map((cobranca, indice) => (
+        <>
+          <div className="razao">
+            {cobrancas.map((cobranca, indice) => (
             <Link
               className="razao-linha entra"
               style={{ animationDelay: `${Math.min(indice, 8) * 45}ms` }}
@@ -231,8 +332,32 @@ export default function ListaDeCobrancas() {
 
               <span className="razao-valor">{moeda(cobranca.valorEmCentavos)}</span>
             </Link>
-          ))}
-        </div>
+            ))}
+          </div>
+          {totalDePaginas > 1 && (
+            <nav className="paginacao" aria-label="Paginacao das cobrancas">
+              <button
+                className="botao"
+                data-tom="vazado"
+                type="button"
+                disabled={paginaAtual === 0 || carregando}
+                onClick={() => setPaginaAtual((atual) => Math.max(0, atual - 1))}
+              >
+                Anterior
+              </button>
+              <span>Pagina {paginaAtual + 1} de {totalDePaginas}</span>
+              <button
+                className="botao"
+                data-tom="vazado"
+                type="button"
+                disabled={paginaAtual + 1 >= totalDePaginas || carregando}
+                onClick={() => setPaginaAtual((atual) => atual + 1)}
+              >
+                Proxima
+              </button>
+            </nav>
+          )}
+        </>
       )}
     </>
   );

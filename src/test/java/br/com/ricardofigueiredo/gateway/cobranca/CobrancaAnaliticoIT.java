@@ -13,12 +13,16 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 import java.util.UUID;
+import java.nio.charset.StandardCharsets;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -197,9 +201,25 @@ class CobrancaAnaliticoIT {
     @DisplayName("a busca livre encontra pela descricao e pelo codigo")
     void buscaLivre() throws Exception {
         String token = autenticar("loja@exemplo.com", "NITEROI");
-        criar(token, CARTAO_APROVADO, 10_000);
+        MvcResult criada = mockMvc.perform(post("/api/v1/cobrancas")
+                        .header(HttpHeaders.AUTHORIZATION, token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoComCartao(CARTAO_APROVADO, 10_000, 1)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String autorizacao = ler(criada).get("codigoAutorizacao").asText();
 
         mockMvc.perform(get("/api/v1/cobrancas").param("busca", "teste")
+                        .header(HttpHeaders.AUTHORIZATION, token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalDeItens").value(1));
+
+        mockMvc.perform(get("/api/v1/cobrancas").param("busca", "1111")
+                        .header(HttpHeaders.AUTHORIZATION, token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalDeItens").value(1));
+
+        mockMvc.perform(get("/api/v1/cobrancas").param("busca", autorizacao)
                         .header(HttpHeaders.AUTHORIZATION, token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalDeItens").value(1));
@@ -207,6 +227,52 @@ class CobrancaAnaliticoIT {
         mockMvc.perform(get("/api/v1/cobrancas").param("busca", "cachorro")
                         .header(HttpHeaders.AUTHORIZATION, token))
                 .andExpect(jsonPath("$.totalDeItens").value(0));
+    }
+
+    @Test
+    @DisplayName("os filtros de valor e o extrato usam todo o resultado conciliado")
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void filtrosDeValorEExtrato() throws Exception {
+        String token = autenticar("loja@exemplo.com", "NITEROI");
+        criar(token, CARTAO_APROVADO, 9_900);
+        criar(token, CARTAO_APROVADO, 22_500);
+
+        mockMvc.perform(get("/api/v1/cobrancas")
+                        .param("valorMinimo", "10000")
+                        .param("valorMaximo", "30000")
+                        .header(HttpHeaders.AUTHORIZATION, token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalDeItens").value(1));
+
+        MvcResult processamento = mockMvc.perform(get("/api/v1/cobrancas/extrato.csv")
+                        .param("valorMinimo", "10000")
+                        .header(HttpHeaders.AUTHORIZATION, token))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+        MvcResult exportacao = mockMvc.perform(asyncDispatch(processamento))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .content().contentType("text/csv;charset=UTF-8"))
+                .andReturn();
+
+        String csv = exportacao.getResponse().getContentAsString(StandardCharsets.UTF_8);
+        assertThat(csv)
+                .startsWith("\uFEFFcodigo;criadoEm;descricao")
+                .contains("Pedido de teste")
+                .contains("225,00")
+                .doesNotContain("99,00");
+    }
+
+    @Test
+    @DisplayName("intervalo de valores incoerente devolve regra de negocio")
+    void intervaloDeValoresIncoerente() throws Exception {
+        String token = autenticar("loja@exemplo.com", "NITEROI");
+
+        mockMvc.perform(get("/api/v1/cobrancas")
+                        .param("valorMinimo", "20000")
+                        .param("valorMaximo", "10000")
+                        .header(HttpHeaders.AUTHORIZATION, token))
+                .andExpect(status().isUnprocessableEntity());
     }
 
     @Test

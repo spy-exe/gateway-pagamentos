@@ -199,6 +199,38 @@ input[type="checkbox"] {
   max-width: 42ch;
 }
 
+.acesso-demo {
+  align-items: center;
+  background: var(--fundo);
+  border: 1px solid var(--borda);
+  border-left: 3px solid var(--laton);
+  border-radius: var(--raio);
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-top: 1.2rem;
+  padding: 0.9rem 1rem;
+}
+
+.acesso-demo p {
+  color: var(--tinta-media);
+  font-size: 0.78rem;
+  margin: 0.28rem 0 0.35rem;
+}
+
+.acesso-demo code {
+  color: var(--cofre);
+  display: block;
+  font-family: var(--fonte-mono);
+  font-size: 0.67rem;
+}
+
+.acesso-demo .botao {
+  flex: none;
+  font-size: 0.78rem;
+  padding: 0.55rem 0.7rem;
+}
+
 /* ---------- abas ---------- */
 
 .abas {
@@ -1051,9 +1083,333 @@ input[type="checkbox"] {
   }
 }
 
+/* ---------- links de pagamento ---------- */
+
+.cabecalho-apoio {
+  color: var(--tinta-media);
+  font-size: 0.88rem;
+  max-width: 38ch;
+  text-align: right;
+}
+
+.links-grade {
+  align-items: start;
+  display: grid;
+  gap: 1.4rem;
+  grid-template-columns: minmax(0, 1.35fr) minmax(270px, 0.65fr);
+  margin-bottom: 2.8rem;
+}
+
+.links-formulario,
+.links-explicacao {
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  padding: 1.4rem;
+}
+
+.links-formulario > div:first-child h3,
+.links-explicacao h3 {
+  margin-top: 0.25rem;
+}
+
+.links-explicacao {
+  border-top: 2px solid var(--laton);
+  display: grid;
+  gap: 1rem;
+}
+
+.links-explicacao > p {
+  color: var(--tinta-media);
+  font-size: 0.9rem;
+}
+
+.subcabecalho {
+  align-items: flex-end;
+  border-bottom: 1px solid var(--borda);
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding-bottom: 0.8rem;
+}
+
+.subcabecalho h3 {
+  margin-top: 0.2rem;
+}
+
+.links-lista {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.link-cartao {
+  align-items: center;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  display: grid;
+  gap: 1.2rem;
+  grid-template-columns: minmax(220px, 1fr) minmax(130px, auto) minmax(140px, auto) auto;
+  padding: 1.15rem 1.25rem;
+}
+
+.link-cartao-principal {
+  min-width: 0;
+}
+
+.link-cartao-principal h3 {
+  margin-top: 0.35rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.link-endereco {
+  color: var(--tinta-fraca);
+  font-family: var(--fonte-mono);
+  font-size: 0.68rem;
+  margin-top: 0.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.link-cartao-numeros {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.link-cartao-numeros strong {
+  font-family: var(--fonte-mono);
+  font-size: 0.88rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.link-cartao-numeros span {
+  color: var(--tinta-fraca);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.sr-status {
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+/* ---------- checkout compartilhavel ---------- */
+
+.checkout-publico {
+  background:
+    linear-gradient(90deg, transparent 49.95%, rgba(14, 74, 67, 0.045) 50%, transparent 50.05%),
+    var(--fundo);
+  display: grid;
+  grid-template-columns: minmax(320px, 0.9fr) minmax(380px, 1.1fr);
+  min-height: 100vh;
+}
+
+.checkout-resumo,
+.checkout-pagamento {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(2rem, 6vw, 5rem);
+}
+
+.checkout-resumo {
+  align-items: flex-end;
+}
+
+.checkout-resumo > .marca,
+.checkout-oferta,
+.checkout-seguranca {
+  max-width: 440px;
+  width: 100%;
+}
+
+.checkout-oferta {
+  border-bottom: 1px solid var(--borda);
+  border-top: 1px solid var(--borda);
+  margin: 2rem 0 1.2rem;
+  padding: 1.8rem 0;
+}
+
+.checkout-oferta h1 {
+  font-size: clamp(2rem, 4vw, 3rem);
+  margin: 0.3rem 0 1.4rem;
+}
+
+.checkout-valor {
+  color: var(--cofre);
+  font-family: var(--fonte-mono);
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  margin-bottom: 1.6rem;
+}
+
+.checkout-seguranca,
+.checkout-instrucao {
+  color: var(--tinta-fraca);
+  font-size: 0.8rem;
+}
+
+.checkout-pagamento {
+  background: var(--superficie);
+  border-left: 1px solid var(--borda);
+}
+
+.checkout-formulario,
+.checkout-resultado {
+  max-width: 430px;
+  width: 100%;
+}
+
+.checkout-formulario > div:first-child,
+.checkout-resultado > .etiqueta {
+  margin-bottom: 1rem;
+}
+
+.checkout-formulario h2,
+.checkout-resultado h2 {
+  margin-top: 0.25rem;
+}
+
+.atalho-checkout {
+  background: var(--superficie-alta);
+  border: 1px dashed var(--borda-forte);
+  border-radius: var(--raio);
+  color: var(--tinta-media);
+  cursor: pointer;
+  font-family: var(--fonte-mono);
+  font-size: 0.68rem;
+  padding: 0.65rem 0.8rem;
+  text-align: left;
+}
+
+.atalho-checkout:hover {
+  border-color: var(--cofre);
+  color: var(--cofre);
+}
+
+.checkout-resultado {
+  border-top: 3px solid var(--verde);
+  padding-top: 1.4rem;
+}
+
+.checkout-resultado[data-aprovado="nao"] {
+  border-top-color: var(--vermelho);
+}
+
+.checkout-resultado > p {
+  color: var(--tinta-media);
+  margin: 0.7rem 0 1.4rem;
+}
+
+.checkout-recibo {
+  border-bottom: 1px solid var(--borda);
+  border-top: 1px solid var(--borda);
+  display: grid;
+  gap: 0.55rem;
+  margin: 1.2rem 0;
+  padding: 1.2rem 0;
+}
+
+.checkout-resultado .qr-pix-copiar {
+  border-color: var(--borda-forte);
+  color: var(--tinta-media);
+}
+
+.checkout-indisponivel {
+  align-self: center;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-top: 3px solid var(--laton);
+  display: grid;
+  gap: 1rem;
+  grid-column: 1 / -1;
+  justify-self: center;
+  margin: 2rem;
+  max-width: 560px;
+  padding: clamp(2rem, 6vw, 4rem);
+}
+
+.checkout-indisponivel .marca {
+  margin-bottom: 1.5rem;
+}
+
+.checkout-indisponivel p {
+  color: var(--tinta-media);
+}
+
+@media (max-width: 980px) {
+  .link-cartao {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .link-cartao .acoes-botoes {
+    justify-self: end;
+  }
+}
+
+@media (max-width: 760px) {
+  .links-grade,
+  .checkout-publico {
+    grid-template-columns: 1fr;
+  }
+
+  .checkout-resumo {
+    align-items: stretch;
+    padding-bottom: 2rem;
+  }
+
+  .checkout-pagamento {
+    border-left: 0;
+    border-top: 1px solid var(--borda);
+    padding-top: 2.4rem;
+  }
+
+  .checkout-formulario,
+  .checkout-resultado {
+    max-width: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .cabecalho-apoio {
+    text-align: left;
+  }
+
+  .link-cartao {
+    align-items: start;
+    grid-template-columns: 1fr;
+  }
+
+  .link-cartao .acoes-botoes {
+    justify-self: stretch;
+  }
+
+  .link-cartao .acoes-botoes > * {
+    flex: 1;
+  }
+
+  .checkout-resumo,
+  .checkout-pagamento {
+    padding: 2rem 1.25rem;
+  }
+}
+
 @media (max-width: 560px) {
   .dupla {
     grid-template-columns: 1fr;
+  }
+
+  .acesso-demo {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .cabecalho-secao {
@@ -1240,7 +1596,7 @@ input[type="checkbox"] {
 /* ---------- barra de filtros ---------- */
 
 .barra-de-filtros {
-  align-items: end;
+  align-items: flex-end;
   display: flex;
   flex-wrap: wrap;
   gap: 0.8rem;
@@ -1258,6 +1614,31 @@ input[type="checkbox"] {
 
 .barra-de-filtros .botao {
   padding: 0.52rem 0.9rem;
+}
+
+.barra-de-filtros-secundaria {
+  justify-content: space-between;
+}
+
+.barra-de-filtros-secundaria p {
+  color: var(--tinta-fraca);
+  font-family: var(--fonte-mono);
+  font-size: 0.72rem;
+  margin: 0 0 0.55rem;
+}
+
+.paginacao {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 1.4rem;
+}
+
+.paginacao span {
+  color: var(--tinta-fraca);
+  font-family: var(--fonte-mono);
+  font-size: 0.72rem;
 }
 
 /* ---------- webhooks ---------- */

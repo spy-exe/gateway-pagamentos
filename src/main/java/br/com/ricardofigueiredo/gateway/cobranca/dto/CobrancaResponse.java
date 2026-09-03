@@ -24,6 +24,7 @@ public record CobrancaResponse(
         long valorDaParcelaEmCentavos,
         long ajusteNaPrimeiraParcelaEmCentavos,
         String pixCopiaECola,
+        String codigoDoLinkPagamento,
         CartaoResponse cartao,
         Instant criadoEm,
         Instant atualizadoEm) {
@@ -52,6 +53,7 @@ public record CobrancaResponse(
                 cobranca.valorDaParcelaEmCentavos(),
                 cobranca.ajusteNaPrimeiraParcelaEmCentavos(),
                 cobranca.getPixCopiaECola(),
+                cobranca.getCodigoDoLinkPagamento(),
                 cartao,
                 cobranca.getCriadoEm(),
                 cobranca.getAtualizadoEm());

@@ -98,6 +98,7 @@ async function principal() {
 
   await semearWebhook(token);
   await semearParceladasEPix(token);
+  await semearLinks(token);
 
   const jaExistem = await chamar("/api/v1/cobrancas?size=1", { token });
   if (jaExistem.totalDeItens >= ROTEIRO.length) {
@@ -151,6 +152,92 @@ async function principal() {
 
   const resumo = await chamar("/api/v1/cobrancas?size=1", { token });
   console.log(`${criadas} cobrancas criadas, total na conta: ${resumo.totalDeItens}`);
+}
+
+/** Vitrine publica: links ativos, esgotado e pausado, com cobrancas de origem rastreada. */
+async function semearLinks(token) {
+  const existentes = await chamar("/api/v1/links-pagamento", { token });
+  if (existentes.length > 0) {
+    console.log(`links de pagamento ja cadastrados (${existentes.length})`);
+    return;
+  }
+
+  const validade = new Date();
+  validade.setDate(validade.getDate() + 90);
+
+  const cesta = await chamar("/api/v1/links-pagamento", {
+    metodo: "POST",
+    token,
+    corpo: {
+      descricao: "Cesta especial da Mercearia Sao Jorge",
+      valorEmCentavos: 12900,
+      metodo: "PIX",
+      limiteDeUsos: 12,
+      expiraEm: validade.toISOString()
+    }
+  });
+
+  const clube = await chamar("/api/v1/links-pagamento", {
+    metodo: "POST",
+    token,
+    corpo: {
+      descricao: "Clube do cafe, assinatura trimestral",
+      valorEmCentavos: 20970,
+      metodo: "CARTAO_CREDITO",
+      parcelasMaximas: 3
+    }
+  });
+
+  const esgotado = await chamar("/api/v1/links-pagamento", {
+    metodo: "POST",
+    token,
+    corpo: {
+      descricao: "Lote relampago de cafe especial",
+      valorEmCentavos: 4590,
+      metodo: "PIX",
+      limiteDeUsos: 1
+    }
+  });
+
+  const pausado = await chamar("/api/v1/links-pagamento", {
+    metodo: "POST",
+    token,
+    corpo: {
+      descricao: "Encomenda sazonal encerrada",
+      valorEmCentavos: 8990,
+      metodo: "CARTAO_DEBITO"
+    }
+  });
+
+  await chamar(`/api/v1/links-pagamento/publicos/${cesta.codigo}/finalizacao`, {
+    metodo: "POST",
+    chave: "demo-link-cesta-primeiro-pedido",
+    corpo: {}
+  });
+  await chamar(`/api/v1/links-pagamento/publicos/${clube.codigo}/finalizacao`, {
+    metodo: "POST",
+    chave: "demo-link-clube-primeira-assinatura",
+    corpo: {
+      parcelas: 3,
+      cartao: {
+        numero: CARTOES.visa,
+        validadeMes: 12,
+        validadeAno: 2030,
+        nomePortador: "Cliente da vitrine"
+      }
+    }
+  });
+  await chamar(`/api/v1/links-pagamento/publicos/${esgotado.codigo}/finalizacao`, {
+    metodo: "POST",
+    chave: "demo-link-lote-esgotado",
+    corpo: {}
+  });
+  await chamar(`/api/v1/links-pagamento/${pausado.codigo}/situacao?ativo=false`, {
+    metodo: "POST",
+    token
+  });
+
+  console.log("4 links de pagamento criados, com exemplos ativo, esgotado e pausado");
 }
 
 /** Um endpoint apontando para o eco publico, para as entregas aparecerem concluidas. */

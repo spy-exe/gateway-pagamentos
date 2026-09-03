@@ -177,6 +177,21 @@ async function principal() {
   await espera(1600);
   await print("15-webhooks");
 
+  // 12. links de pagamento e o checkout publico da conta demo
+  await pagina.goto(`${ENDERECO}/painel/links`, { waitUntil: "networkidle0" });
+  await print("16-links-de-pagamento");
+
+  const linkPublico = await pagina.evaluate(() => {
+    const ancora = [...document.querySelectorAll('a[href^="/pagar/"]')]
+      .find((item) => item.textContent.trim() === "Abrir");
+    return ancora?.getAttribute("href") ?? null;
+  });
+  if (linkPublico) {
+    await pagina.evaluate(() => window.localStorage.clear());
+    await pagina.goto(`${ENDERECO}${linkPublico}`, { waitUntil: "networkidle0" });
+    await print("17-checkout-publico");
+  }
+
   await navegador.close();
 
   if (registro.length > 0) {

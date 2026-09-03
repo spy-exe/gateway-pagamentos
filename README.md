@@ -23,9 +23,10 @@ Para visualizar o painel já preenchido, acesse a aplicação com a conta abaixo
 | E-mail | `demo@aval.app` |
 | Senha | `demonstracao2026` |
 
-A conta possui 36 cobranças distribuídas pelos últimos quarenta e cinco dias,
-incluindo aprovações, recusas por cada motivo, captura manual, cancelamento e
-estornos parciais e totais.
+A conta possui quase cinquenta cobranças distribuídas entre cartão e Pix, com
+aprovações, recusas por cada motivo, parcelamentos, captura manual, cancelamento,
+estornos parciais e totais. Ela também traz um webhook com histórico e quatro
+links de pagamento nos estados ativo, esgotado e pausado.
 
 A conta é pública de propósito, para que a avaliação não dependa de cadastro. O
 que estiver nela pode ser alterado por qualquer pessoa que abra o link, e nada
@@ -63,10 +64,13 @@ Telas em `web/prints/`.
 
 ![Comprovante com o carimbo de aval](web/prints/06-comprovante-capturada.png)
 
+![Links de pagamento](web/prints/16-links-de-pagamento.png)
+
 ## Stack
 
 - Java 21
 - Spring Boot 3.5.16 (Web, Data JPA, Validation, Security)
+- Next.js 15.5.25 com React 19 no painel e no checkout público
 - PostgreSQL 17 em produção, H2 em memória no perfil padrão e nos testes
 - Flyway para versionamento do banco
 - springdoc-openapi para a documentação interativa
@@ -104,15 +108,14 @@ As tabelas são criadas pelo Flyway na subida, a partir de `src/main/resources/d
 ./mvnw test
 ```
 
-São 110 testes divididos em três níveis: as regras de cartão e do autorizador em testes de unidade puros,
+São 143 testes divididos em três níveis: as regras de cartão e do autorizador em testes de unidade puros,
 a máquina de estados da cobrança em cima da entidade de domínio e o fluxo completo em testes de
 integração que sobem o contexto do Spring e chamam a API por HTTP, usando as mesmas migrations do Flyway
 que rodam em produção.
 
-O JaCoCo mede a cobertura e o relatório sai em `target/site/jacoco/index.html`. Hoje o projeto está em
-**92% de instruções e 83% de ramos**, e `./mvnw verify` reprova abaixo disso. O que falta coberto são
-caminhos de borda que ainda não têm teste: o `main`, o filtro JWT com token de usuário removido, alguns
-acessores de entidade e o tratamento de erro de conflito.
+O JaCoCo mede a cobertura e o relatório sai em `target/site/jacoco/index.html`. O `./mvnw verify`
+reprova se o projeto cair abaixo de **90% de instruções ou 82% de ramos**. No build atual são
+**95,77% de instruções e 83,57% de ramos**.
 
 ## Autenticação
 
@@ -139,7 +142,8 @@ curl -X POST http://localhost:8080/api/v1/autenticacao/login \
 | POST | `/api/v1/autenticacao/login` | Troca e-mail e senha por um token |
 | GET | `/api/v1/autenticacao/eu` | Dados do dono do token |
 | POST | `/api/v1/cobrancas` | Cria a cobrança e roda a autorização |
-| GET | `/api/v1/cobrancas` | Lista paginada, com filtro por `status` e `metodo` |
+| GET | `/api/v1/cobrancas` | Lista paginada por status, método, período, valor e busca livre |
+| GET | `/api/v1/cobrancas/extrato.csv` | Exporta todo o resultado filtrado para conciliação |
 | GET | `/api/v1/cobrancas/{codigo}` | Consulta uma cobrança |
 | POST | `/api/v1/cobrancas/{codigo}/captura` | Captura uma cobrança autorizada |
 | POST | `/api/v1/cobrancas/{codigo}/cancelamento` | Desfaz a autorização antes da captura |
@@ -149,6 +153,11 @@ curl -X POST http://localhost:8080/api/v1/autenticacao/login \
 | GET | `/api/v1/cobrancas/resumo` | Fechamento do período, somado pelo banco |
 | GET | `/api/v1/cobrancas/movimento` | Volume capturado por dia |
 | GET | `/api/v1/cobrancas/bandeiras` | Participação de cada bandeira |
+| POST | `/api/v1/links-pagamento` | Cria um link de cobrança reutilizável |
+| GET | `/api/v1/links-pagamento` | Lista os links do estabelecimento e seus usos |
+| POST | `/api/v1/links-pagamento/{codigo}/situacao` | Pausa ou reativa o link |
+| GET | `/api/v1/links-pagamento/publicos/{codigo}` | Abre os dados do checkout público |
+| POST | `/api/v1/links-pagamento/publicos/{codigo}/finalizacao` | Conclui o pagamento pelo link |
 | POST | `/api/v1/webhooks` | Cadastra um endpoint e devolve o segredo |
 | GET | `/api/v1/webhooks` | Lista os endpoints, com o segredo mascarado |
 | POST | `/api/v1/webhooks/{codigo}/situacao` | Liga ou desliga o envio |
@@ -160,6 +169,24 @@ curl -X POST http://localhost:8080/api/v1/autenticacao/login \
 
 Valores trafegam sempre em centavos, como número inteiro. Isso evita erro de arredondamento de ponto
 flutuante e é o formato que os gateways de mercado usam.
+
+A listagem pesquisa também por código da cobrança, autorização, chave de
+idempotência e quatro últimos dígitos do cartão. A exportação CSV acontece em
+lotes no servidor, não se limita à página aberta e neutraliza células que uma
+planilha poderia interpretar como fórmula.
+
+## Links de pagamento
+
+O estabelecimento cria uma oferta com valor, meio de pagamento, parcelamento
+máximo, quantidade de usos e validade opcionais. O endereço `/pagar/{codigo}` é
+público e leva a um checkout responsivo com a identidade do recebedor; quem paga
+não precisa criar conta. Toda finalização reaproveita o autorizador, a
+idempotência, a trilha de eventos e os webhooks do fluxo principal.
+
+O consumo do limite usa bloqueio pessimista no PostgreSQL e versão otimista na
+entidade. Assim, duas finalizações simultâneas não conseguem ultrapassar o
+estoque do link. A cobrança grava sua origem e o extrato inclui essa referência
+para conciliação.
 
 ## Pix
 
@@ -358,6 +385,7 @@ src/main/java/br/com/ricardofigueiredo/gateway
 ├── cobranca      entidade raiz, estornos, eventos, service e controller
 ├── comum         tratamento de erro, paginação e verificação de disponibilidade
 ├── config        segurança, OpenAPI e o relógio injetável
+├── linkpagamento links reutilizáveis, limites e checkout público
 ├── seguranca     emissão do JWT, filtro de autenticação e resposta de 401
 └── usuario       estabelecimento, cadastro e login
 ```
@@ -371,8 +399,8 @@ dois últimos sob systemd com reinício automático nas unidades `gateway-pagame
 documentação para a API, de modo que painel e API compartilham a mesma origem e não existe CORS no
 caminho.
 
-- Painel: https://api-gateway-aula.malha.app
-- API e documentação: https://api-gateway-aula.malha.app/swagger-ui.html
+- Painel: https://gateway-aula.malha.app
+- API e documentação: https://gateway-aula.malha.app/swagger-ui.html
 
 As credenciais de banco e o segredo do JWT ficam fora do repositório, em um arquivo de ambiente lido
 pelas unidades do systemd.

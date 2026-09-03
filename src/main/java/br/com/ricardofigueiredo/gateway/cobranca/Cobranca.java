@@ -5,6 +5,7 @@ import br.com.ricardofigueiredo.gateway.autorizacao.CartaoTokenizado;
 import br.com.ricardofigueiredo.gateway.autorizacao.MotivoRecusa;
 import br.com.ricardofigueiredo.gateway.autorizacao.ResultadoAutorizacao;
 import br.com.ricardofigueiredo.gateway.comum.excecao.RegraDeNegocioException;
+import br.com.ricardofigueiredo.gateway.linkpagamento.LinkPagamento;
 import br.com.ricardofigueiredo.gateway.usuario.Usuario;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -96,6 +97,10 @@ public class Cobranca {
     @Column(name = "pix_copia_e_cola", length = 512)
     private String pixCopiaECola;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "link_pagamento_id")
+    private LinkPagamento linkPagamento;
+
     @Column(name = "criado_em", nullable = false)
     private Instant criadoEm;
 
@@ -108,6 +113,13 @@ public class Cobranca {
     public Cobranca(Usuario usuario, long valorEmCentavos, String descricao, MetodoPagamento metodo,
                     boolean capturaAutomatica, CartaoTokenizado cartao, String chaveIdempotencia,
                     int parcelas, ResultadoAutorizacao resultado) {
+        this(usuario, valorEmCentavos, descricao, metodo, capturaAutomatica, cartao,
+                chaveIdempotencia, parcelas, resultado, null);
+    }
+
+    public Cobranca(Usuario usuario, long valorEmCentavos, String descricao, MetodoPagamento metodo,
+                    boolean capturaAutomatica, CartaoTokenizado cartao, String chaveIdempotencia,
+                    int parcelas, ResultadoAutorizacao resultado, LinkPagamento linkPagamento) {
         this.codigo = "cob_" + UUID.randomUUID().toString().replace("-", "");
         this.usuario = usuario;
         this.valorEmCentavos = valorEmCentavos;
@@ -118,6 +130,7 @@ public class Cobranca {
         this.capturaAutomatica = capturaAutomatica;
         this.chaveIdempotencia = chaveIdempotencia;
         this.parcelas = parcelas;
+        this.linkPagamento = linkPagamento;
         this.criadoEm = Instant.now();
         this.atualizadoEm = this.criadoEm;
 
@@ -273,6 +286,10 @@ public class Cobranca {
 
     public String getPixCopiaECola() {
         return pixCopiaECola;
+    }
+
+    public String getCodigoDoLinkPagamento() {
+        return linkPagamento == null ? null : linkPagamento.getCodigo();
     }
 
     public Instant getCriadoEm() {

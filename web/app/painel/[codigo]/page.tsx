@@ -129,6 +129,12 @@ export default function DetalheDaCobranca() {
             {cobranca.codigoAutorizacao && (
               <LinhaConta rotulo="Autorizacao" valor={cobranca.codigoAutorizacao} />
             )}
+            {cobranca.codigoDoLinkPagamento && (
+              <LinhaConta
+                rotulo="Origem"
+                valor={`Link ${cobranca.codigoDoLinkPagamento.replace("link_", "").slice(0, 10)}`}
+              />
+            )}
             {cobranca.cartao && (
               <>
                 <LinhaConta rotulo="Bandeira" valor={rotuloBandeira(cobranca.cartao.bandeira)} />

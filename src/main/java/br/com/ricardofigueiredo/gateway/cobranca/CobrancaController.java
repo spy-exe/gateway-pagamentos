@@ -18,6 +18,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -41,9 +42,11 @@ import java.util.List;
 public class CobrancaController {
 
     private final CobrancaService cobrancaService;
+    private final ExtratoCsvService extratoCsvService;
 
-    public CobrancaController(CobrancaService cobrancaService) {
+    public CobrancaController(CobrancaService cobrancaService, ExtratoCsvService extratoCsvService) {
         this.cobrancaService = cobrancaService;
+        this.extratoCsvService = extratoCsvService;
     }
 
     @PostMapping
@@ -77,11 +80,37 @@ public class CobrancaController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant de,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant ate,
             @RequestParam(required = false) String busca,
+            @RequestParam(required = false) Long valorMinimo,
+            @RequestParam(required = false) Long valorMaximo,
             @PageableDefault(size = 20, sort = "criadoEm", direction = Sort.Direction.DESC) Pageable paginacao) {
 
         Page<Cobranca> pagina =
-                cobrancaService.listar(autenticado.getUsuario(), status, metodo, de, ate, busca, paginacao);
+                cobrancaService.listar(autenticado.getUsuario(), status, metodo, de, ate, busca,
+                        valorMinimo, valorMaximo, paginacao);
         return PaginaResponse.de(pagina, CobrancaResponse::de);
+    }
+
+    @GetMapping(value = "/extrato.csv", produces = "text/csv;charset=UTF-8")
+    @Operation(summary = "Exporta todo o resultado filtrado para conciliacao",
+            description = "O arquivo nao fica limitado a pagina visivel no painel.")
+    public ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody> exportar(
+            @AuthenticationPrincipal UsuarioAutenticado autenticado,
+            @RequestParam(required = false) StatusCobranca status,
+            @RequestParam(required = false) MetodoPagamento metodo,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant de,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant ate,
+            @RequestParam(required = false) String busca,
+            @RequestParam(required = false) Long valorMinimo,
+            @RequestParam(required = false) Long valorMaximo) {
+
+        var corpo = (org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody) saida ->
+                extratoCsvService.escrever(saida, autenticado.getUsuario(), status, metodo, de, ate,
+                        busca, valorMinimo, valorMaximo);
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("text/csv;charset=UTF-8"))
+                .header("Content-Disposition", "attachment; filename=extrato-aval.csv")
+                .body(corpo);
     }
 
     @GetMapping("/resumo")
