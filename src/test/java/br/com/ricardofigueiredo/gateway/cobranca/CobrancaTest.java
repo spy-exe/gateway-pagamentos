@@ -118,16 +118,16 @@ class CobrancaTest {
 
     private Cobranca aprovada(boolean capturaAutomatica) {
         return new Cobranca(usuario(), VALOR, "Pedido 1042", MetodoPagamento.CARTAO_CREDITO,
-                capturaAutomatica, cartao(), null, ResultadoAutorizacao.aprovada("A1B2C3"));
+                capturaAutomatica, cartao(), null, 1, ResultadoAutorizacao.aprovada("A1B2C3"));
     }
 
     private Cobranca recusada() {
         return new Cobranca(usuario(), VALOR, "Pedido 1043", MetodoPagamento.CARTAO_CREDITO,
-                true, cartao(), null, ResultadoAutorizacao.recusada(MotivoRecusa.SALDO_INSUFICIENTE));
+                true, cartao(), null, 1, ResultadoAutorizacao.recusada(MotivoRecusa.SALDO_INSUFICIENTE));
     }
 
     private Usuario usuario() {
-        return new Usuario("loja@exemplo.com", "hash", "Loja de Teste");
+        return new Usuario("loja@exemplo.com", "hash", "Loja de Teste", "loja@exemplo.com", "RIO DE JANEIRO");
     }
 
     private CartaoTokenizado cartao() {

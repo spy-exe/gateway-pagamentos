@@ -5,6 +5,8 @@ import br.com.ricardofigueiredo.gateway.cobranca.dto.CriarCobrancaRequest;
 import br.com.ricardofigueiredo.gateway.cobranca.dto.EstornoRequest;
 import br.com.ricardofigueiredo.gateway.cobranca.dto.EstornoResponse;
 import br.com.ricardofigueiredo.gateway.cobranca.dto.EventoResponse;
+import br.com.ricardofigueiredo.gateway.cobranca.dto.DiaDoMovimento;
+import br.com.ricardofigueiredo.gateway.cobranca.dto.ResumoResponse;
 import br.com.ricardofigueiredo.gateway.comum.PaginaResponse;
 import br.com.ricardofigueiredo.gateway.seguranca.UsuarioAutenticado;
 import io.swagger.v3.oas.annotations.Operation;
@@ -25,9 +27,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @RestController
@@ -63,15 +68,48 @@ public class CobrancaController {
     }
 
     @GetMapping
-    @Operation(summary = "Lista as cobrancas do estabelecimento, da mais recente para a mais antiga")
+    @Operation(summary = "Lista as cobrancas do estabelecimento, da mais recente para a mais antiga",
+            description = "Aceita filtro por status, metodo, intervalo de datas e busca livre na descricao ou no codigo.")
     public PaginaResponse<CobrancaResponse> listar(
             @AuthenticationPrincipal UsuarioAutenticado autenticado,
             @RequestParam(required = false) StatusCobranca status,
             @RequestParam(required = false) MetodoPagamento metodo,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant de,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant ate,
+            @RequestParam(required = false) String busca,
             @PageableDefault(size = 20, sort = "criadoEm", direction = Sort.Direction.DESC) Pageable paginacao) {
 
-        Page<Cobranca> pagina = cobrancaService.listar(autenticado.getUsuario(), status, metodo, paginacao);
+        Page<Cobranca> pagina =
+                cobrancaService.listar(autenticado.getUsuario(), status, metodo, de, ate, busca, paginacao);
         return PaginaResponse.de(pagina, CobrancaResponse::de);
+    }
+
+    @GetMapping("/resumo")
+    @Operation(summary = "Fechamento do periodo, somado pelo banco",
+            description = "Os totais nao dependem da pagina carregada: a soma acontece no PostgreSQL.")
+    public ResumoResponse resumo(@AuthenticationPrincipal UsuarioAutenticado autenticado,
+                                 @RequestParam(defaultValue = "30") int dias) {
+        return cobrancaService.resumir(autenticado.getUsuario(), inicioDoPeriodo(dias));
+    }
+
+    @GetMapping("/movimento")
+    @Operation(summary = "Volume capturado por dia, agrupado pelo banco")
+    public List<DiaDoMovimento> movimento(@AuthenticationPrincipal UsuarioAutenticado autenticado,
+                                          @RequestParam(defaultValue = "30") int dias) {
+        return cobrancaService.movimentoPorDia(autenticado.getUsuario(), inicioDoPeriodo(dias));
+    }
+
+    @GetMapping("/bandeiras")
+    @Operation(summary = "Participacao de cada bandeira no periodo")
+    public List<CobrancaService.FatiaDeBandeira> bandeiras(
+            @AuthenticationPrincipal UsuarioAutenticado autenticado,
+            @RequestParam(defaultValue = "30") int dias) {
+        return cobrancaService.mixDeBandeiras(autenticado.getUsuario(), inicioDoPeriodo(dias));
+    }
+
+    private Instant inicioDoPeriodo(int dias) {
+        int janela = Math.min(Math.max(dias, 1), 365);
+        return Instant.now().minus(janela, ChronoUnit.DAYS);
     }
 
     @GetMapping("/{codigo}")

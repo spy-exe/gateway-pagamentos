@@ -5,10 +5,15 @@ import br.com.ricardofigueiredo.gateway.autorizacao.CartaoTokenizado;
 import br.com.ricardofigueiredo.gateway.autorizacao.ResultadoAutorizacao;
 import br.com.ricardofigueiredo.gateway.cobranca.dto.CriarCobrancaRequest;
 import br.com.ricardofigueiredo.gateway.cobranca.dto.DadosCartaoRequest;
+import br.com.ricardofigueiredo.gateway.cobranca.dto.DiaDoMovimento;
 import br.com.ricardofigueiredo.gateway.cobranca.dto.EstornoRequest;
+import br.com.ricardofigueiredo.gateway.cobranca.dto.ResumoResponse;
 import br.com.ricardofigueiredo.gateway.comum.excecao.ConflitoException;
 import br.com.ricardofigueiredo.gateway.comum.excecao.RecursoNaoEncontradoException;
+import br.com.ricardofigueiredo.gateway.comum.excecao.RegraDeNegocioException;
+import br.com.ricardofigueiredo.gateway.pix.BrCode;
 import br.com.ricardofigueiredo.gateway.usuario.Usuario;
+import br.com.ricardofigueiredo.gateway.webhook.EmissorDeEventos;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -17,32 +22,42 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.sql.Date;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class CobrancaService {
 
     private static final Logger log = LoggerFactory.getLogger(CobrancaService.class);
 
+    /** Abaixo disso a parcela nao paga o custo de processa-la, entao ninguem aceita. */
+    private static final long PARCELA_MINIMA_EM_CENTAVOS = 500L;
+
+    private static final Set<StatusCobranca> LIQUIDADAS = EnumSet.of(
+            StatusCobranca.CAPTURADA, StatusCobranca.PARCIALMENTE_ESTORNADA, StatusCobranca.ESTORNADA);
+
     private final CobrancaRepository cobrancaRepository;
     private final EstornoRepository estornoRepository;
     private final EventoCobrancaRepository eventoRepository;
     private final AutorizadorSimulado autorizador;
+    private final EmissorDeEventos emissor;
 
     public CobrancaService(CobrancaRepository cobrancaRepository,
                            EstornoRepository estornoRepository,
                            EventoCobrancaRepository eventoRepository,
-                           AutorizadorSimulado autorizador) {
+                           AutorizadorSimulado autorizador,
+                           EmissorDeEventos emissor) {
         this.cobrancaRepository = cobrancaRepository;
         this.estornoRepository = estornoRepository;
         this.eventoRepository = eventoRepository;
         this.autorizador = autorizador;
+        this.emissor = emissor;
     }
 
-    /**
-     * Indica se a cobranca foi criada agora ou recuperada por chave de
-     * idempotencia, para que o controller responda 201 ou 200.
-     */
     public record ResultadoDaCriacao(Cobranca cobranca, boolean recuperadaPorIdempotencia) {
     }
 
@@ -58,6 +73,7 @@ public class CobrancaService {
             }
         }
 
+        int parcelas = validarParcelamento(requisicao);
         CartaoTokenizado cartao = requisicao.metodo().exigeCartao() ? tokenizar(requisicao.cartao()) : null;
         ResultadoAutorizacao resultado =
                 autorizador.autorizar(requisicao.metodo(), requisicao.valorEmCentavos(), cartao);
@@ -70,6 +86,7 @@ public class CobrancaService {
                 requisicao.capturaAutomaticaOuPadrao(),
                 cartao,
                 chave,
+                parcelas,
                 resultado);
 
         try {
@@ -78,10 +95,23 @@ public class CobrancaService {
             throw new ConflitoException("Ja existe uma cobranca sendo processada com esta chave de idempotencia.");
         }
 
+        if (requisicao.metodo() == MetodoPagamento.PIX && resultado.aprovada()) {
+            cobranca.registrarPix(BrCode.gerar(
+                    usuario.getChavePix(),
+                    usuario.getNomeEstabelecimento(),
+                    usuario.getCidade(),
+                    cobranca.getValorEmCentavos(),
+                    cobranca.getCodigo()));
+        }
+
         registrarEvento(cobranca, resultado.aprovada() ? "AUTORIZACAO" : "RECUSA", null,
                 resultado.aprovada()
                         ? "codigo de autorizacao " + resultado.codigoAutorizacao()
                         : resultado.motivo().getDescricao());
+
+        emissor.emitir(resultado.aprovada()
+                ? (cobranca.getStatus() == StatusCobranca.CAPTURADA ? "cobranca.capturada" : "cobranca.autorizada")
+                : "cobranca.recusada", cobranca);
 
         log.info("cobranca {} criada por {} com status {}",
                 cobranca.getCodigo(), usuario.getEmail(), cobranca.getStatus());
@@ -96,6 +126,7 @@ public class CobrancaService {
 
         cobranca.capturar();
         registrarEvento(cobranca, "CAPTURA", anterior, "captura manual solicitada pelo estabelecimento");
+        emissor.emitir("cobranca.capturada", cobranca);
 
         return cobranca;
     }
@@ -107,6 +138,7 @@ public class CobrancaService {
 
         cobranca.cancelar();
         registrarEvento(cobranca, "CANCELAMENTO", anterior, "autorizacao desfeita antes da captura");
+        emissor.emitir("cobranca.cancelada", cobranca);
 
         return cobranca;
     }
@@ -123,6 +155,7 @@ public class CobrancaService {
         cobranca.registrarEstorno(valor);
         Estorno estorno = estornoRepository.save(new Estorno(cobranca, valor, requisicao.motivo()));
         registrarEvento(cobranca, "ESTORNO", anterior, "estorno de " + valor + " centavos");
+        emissor.emitir("cobranca.estornada", cobranca);
 
         log.info("cobranca {} estornada em {} centavos, novo status {}",
                 cobranca.getCodigo(), valor, cobranca.getStatus());
@@ -137,17 +170,45 @@ public class CobrancaService {
 
     @Transactional(readOnly = true)
     public Page<Cobranca> listar(Usuario usuario, StatusCobranca status, MetodoPagamento metodo,
-                                 Pageable paginacao) {
-        if (status != null && metodo != null) {
-            return cobrancaRepository.findByUsuarioAndStatusAndMetodo(usuario, status, metodo, paginacao);
-        }
-        if (status != null) {
-            return cobrancaRepository.findByUsuarioAndStatus(usuario, status, paginacao);
-        }
-        if (metodo != null) {
-            return cobrancaRepository.findByUsuarioAndMetodo(usuario, metodo, paginacao);
-        }
-        return cobrancaRepository.findByUsuario(usuario, paginacao);
+                                 Instant desde, Instant ate, String busca, Pageable paginacao) {
+        return cobrancaRepository.findAll(CobrancaSpecs.de(usuario, status, metodo, desde, ate, busca), paginacao);
+    }
+
+    @Transactional(readOnly = true)
+    public ResumoResponse resumir(Usuario usuario, Instant desde) {
+        Object[] linha = cobrancaRepository.resumir(
+                usuario, LIQUIDADAS, StatusCobranca.AUTORIZADA, StatusCobranca.RECUSADA, desde);
+
+        // o Hibernate entrega a projecao de coluna unica embrulhada em outro vetor
+        Object[] colunas = linha.length == 1 && linha[0] instanceof Object[] interno ? interno : linha;
+
+        return ResumoResponse.de(
+                comoLongo(colunas[0]), comoLongo(colunas[1]), comoLongo(colunas[2]),
+                comoLongo(colunas[3]), comoLongo(colunas[4]));
+    }
+
+    @Transactional(readOnly = true)
+    public List<DiaDoMovimento> movimentoPorDia(Usuario usuario, Instant desde) {
+        return cobrancaRepository.movimentoPorDia(usuario.getId(), desde).stream()
+                .map(linha -> new DiaDoMovimento(
+                        comoData(linha[0]),
+                        comoLongo(linha[1]),
+                        comoLongo(linha[2]),
+                        comoLongo(linha[3])))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<FatiaDeBandeira> mixDeBandeiras(Usuario usuario, Instant desde) {
+        return cobrancaRepository.mixDeBandeiras(usuario, desde).stream()
+                .map(linha -> new FatiaDeBandeira(
+                        String.valueOf(linha[0]),
+                        comoLongo(linha[1]),
+                        comoLongo(linha[2])))
+                .toList();
+    }
+
+    public record FatiaDeBandeira(String bandeira, long transacoes, long valorEmCentavos) {
     }
 
     @Transactional(readOnly = true)
@@ -158,6 +219,20 @@ public class CobrancaService {
     @Transactional(readOnly = true)
     public List<Estorno> estornos(Usuario usuario, String codigo) {
         return estornoRepository.findByCobrancaOrderByCriadoEmAsc(buscarEntidade(usuario, codigo));
+    }
+
+    private int validarParcelamento(CriarCobrancaRequest requisicao) {
+        int parcelas = requisicao.parcelasOuUma();
+
+        if (parcelas > 1 && !requisicao.metodo().permiteParcelamento()) {
+            throw new RegraDeNegocioException("Parcelamento so existe no cartao de credito.");
+        }
+        if (requisicao.valorEmCentavos() / parcelas < PARCELA_MINIMA_EM_CENTAVOS) {
+            throw new RegraDeNegocioException(
+                    "Cada parcela precisa ficar em pelo menos " + PARCELA_MINIMA_EM_CENTAVOS + " centavos.");
+        }
+
+        return parcelas;
     }
 
     private Cobranca buscarEntidade(Usuario usuario, String codigo) {
@@ -177,5 +252,19 @@ public class CobrancaService {
 
     private String normalizarChave(String chave) {
         return chave == null || chave.isBlank() ? null : chave.trim();
+    }
+
+    private static long comoLongo(Object valor) {
+        return valor == null ? 0L : ((Number) valor).longValue();
+    }
+
+    private static LocalDate comoData(Object valor) {
+        if (valor instanceof LocalDate data) {
+            return data;
+        }
+        if (valor instanceof Date data) {
+            return data.toLocalDate();
+        }
+        return LocalDate.parse(String.valueOf(valor));
     }
 }
