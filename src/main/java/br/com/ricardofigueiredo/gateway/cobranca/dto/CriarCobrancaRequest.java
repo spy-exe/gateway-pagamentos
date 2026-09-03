@@ -4,6 +4,8 @@ import br.com.ricardofigueiredo.gateway.cobranca.MetodoPagamento;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -24,11 +26,19 @@ public record CriarCobrancaRequest(
 
         Boolean capturaAutomatica,
 
+        @Min(value = 1, message = "o parcelamento vai de 1 a 12 vezes")
+        @Max(value = 12, message = "o parcelamento vai de 1 a 12 vezes")
+        Integer parcelas,
+
         @Valid
         DadosCartaoRequest cartao) {
 
     public boolean capturaAutomaticaOuPadrao() {
         return capturaAutomatica == null || capturaAutomatica;
+    }
+
+    public int parcelasOuUma() {
+        return parcelas == null ? 1 : parcelas;
     }
 
     @JsonIgnore

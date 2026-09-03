@@ -43,7 +43,9 @@ public class AutenticacaoService {
         Usuario usuario = new Usuario(
                 email,
                 codificadorDeSenha.encode(requisicao.senha()),
-                requisicao.nomeEstabelecimento().trim());
+                requisicao.nomeEstabelecimento().trim(),
+                vazioVira(requisicao.chavePix(), email),
+                vazioVira(requisicao.cidade(), "SAO PAULO"));
 
         return usuarioRepository.save(usuario);
     }
@@ -58,5 +60,10 @@ public class AutenticacaoService {
 
     private String normalizar(String email) {
         return email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    /** Sem chave Pix informada o proprio e-mail vira a chave, que e o caso mais comum. */
+    private String vazioVira(String valor, String padrao) {
+        return valor == null || valor.isBlank() ? padrao : valor.trim();
     }
 }

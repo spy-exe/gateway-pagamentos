@@ -20,6 +20,10 @@ public record CobrancaResponse(
         String descricaoDaRecusa,
         String codigoAutorizacao,
         boolean capturaAutomatica,
+        int parcelas,
+        long valorDaParcelaEmCentavos,
+        long ajusteNaPrimeiraParcelaEmCentavos,
+        String pixCopiaECola,
         CartaoResponse cartao,
         Instant criadoEm,
         Instant atualizadoEm) {
@@ -44,6 +48,10 @@ public record CobrancaResponse(
                 cobranca.getMotivoRecusa() == null ? null : cobranca.getMotivoRecusa().getDescricao(),
                 cobranca.getCodigoAutorizacao(),
                 cobranca.isCapturaAutomatica(),
+                cobranca.getParcelas(),
+                cobranca.valorDaParcelaEmCentavos(),
+                cobranca.ajusteNaPrimeiraParcelaEmCentavos(),
+                cobranca.getPixCopiaECola(),
                 cartao,
                 cobranca.getCriadoEm(),
                 cobranca.getAtualizadoEm());

@@ -15,4 +15,9 @@ public enum MetodoPagamento {
     public boolean exigeCartao() {
         return exigeCartao;
     }
+
+    /** Parcelamento so existe no credito. Debito e Pix saem a vista. */
+    public boolean permiteParcelamento() {
+        return this == CARTAO_CREDITO;
+    }
 }

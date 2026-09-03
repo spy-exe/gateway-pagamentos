@@ -30,16 +30,24 @@ public class Usuario {
     @Column(name = "nome_estabelecimento", nullable = false)
     private String nomeEstabelecimento;
 
+    @Column(name = "chave_pix")
+    private String chavePix;
+
+    private String cidade;
+
     @Column(name = "criado_em", nullable = false)
     private Instant criadoEm;
 
     protected Usuario() {
     }
 
-    public Usuario(String email, String senhaHash, String nomeEstabelecimento) {
+    public Usuario(String email, String senhaHash, String nomeEstabelecimento,
+                   String chavePix, String cidade) {
         this.email = email;
         this.senhaHash = senhaHash;
         this.nomeEstabelecimento = nomeEstabelecimento;
+        this.chavePix = chavePix;
+        this.cidade = cidade;
         this.criadoEm = Instant.now();
     }
 
@@ -57,6 +65,14 @@ public class Usuario {
 
     public String getNomeEstabelecimento() {
         return nomeEstabelecimento;
+    }
+
+    public String getChavePix() {
+        return chavePix;
+    }
+
+    public String getCidade() {
+        return cidade;
     }
 
     public Instant getCriadoEm() {

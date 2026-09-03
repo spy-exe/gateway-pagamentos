@@ -17,5 +17,11 @@ public record RegistroRequest(
 
         @NotBlank(message = "informe o nome do estabelecimento")
         @Size(max = 120, message = "nome pode ter no maximo 120 caracteres")
-        String nomeEstabelecimento) {
+        String nomeEstabelecimento,
+
+        @Size(max = 80, message = "a chave Pix pode ter no maximo 80 caracteres")
+        String chavePix,
+
+        @Size(max = 60, message = "a cidade pode ter no maximo 60 caracteres")
+        String cidade) {
 }

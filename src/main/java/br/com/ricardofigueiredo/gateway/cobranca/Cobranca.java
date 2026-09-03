@@ -90,6 +90,12 @@ public class Cobranca {
     @Column(name = "chave_idempotencia")
     private String chaveIdempotencia;
 
+    @Column(nullable = false)
+    private int parcelas;
+
+    @Column(name = "pix_copia_e_cola", length = 512)
+    private String pixCopiaECola;
+
     @Column(name = "criado_em", nullable = false)
     private Instant criadoEm;
 
@@ -101,7 +107,7 @@ public class Cobranca {
 
     public Cobranca(Usuario usuario, long valorEmCentavos, String descricao, MetodoPagamento metodo,
                     boolean capturaAutomatica, CartaoTokenizado cartao, String chaveIdempotencia,
-                    ResultadoAutorizacao resultado) {
+                    int parcelas, ResultadoAutorizacao resultado) {
         this.codigo = "cob_" + UUID.randomUUID().toString().replace("-", "");
         this.usuario = usuario;
         this.valorEmCentavos = valorEmCentavos;
@@ -111,6 +117,7 @@ public class Cobranca {
         this.metodo = metodo;
         this.capturaAutomatica = capturaAutomatica;
         this.chaveIdempotencia = chaveIdempotencia;
+        this.parcelas = parcelas;
         this.criadoEm = Instant.now();
         this.atualizadoEm = this.criadoEm;
 
@@ -166,6 +173,22 @@ public class Cobranca {
                 ? StatusCobranca.ESTORNADA
                 : StatusCobranca.PARCIALMENTE_ESTORNADA;
         marcarAlteracao();
+    }
+
+    /**
+     * O troco da divisao vai para a primeira parcela, que e como as
+     * adquirentes fazem: ninguem cobra fracao de centavo.
+     */
+    public long valorDaParcelaEmCentavos() {
+        return valorEmCentavos / parcelas;
+    }
+
+    public long ajusteNaPrimeiraParcelaEmCentavos() {
+        return valorEmCentavos % parcelas;
+    }
+
+    public void registrarPix(String copiaECola) {
+        this.pixCopiaECola = copiaECola;
     }
 
     public long saldoEstornavelEmCentavos() {
@@ -242,6 +265,14 @@ public class Cobranca {
 
     public String getChaveIdempotencia() {
         return chaveIdempotencia;
+    }
+
+    public int getParcelas() {
+        return parcelas;
+    }
+
+    public String getPixCopiaECola() {
+        return pixCopiaECola;
     }
 
     public Instant getCriadoEm() {
