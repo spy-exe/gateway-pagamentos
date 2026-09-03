@@ -54,6 +54,16 @@ public class EntregadorDeWebhooks {
 
     void entregar(EntregaWebhook entrega) {
         EndpointWebhook endpoint = entrega.getEndpoint();
+
+        // conferido de novo aqui, e nao so no cadastro, por causa da religacao de DNS
+        try {
+            DestinoDeWebhook.exigirDestinoPublico(endpoint.getUrl());
+        } catch (RuntimeException excecao) {
+            entrega.registrarFalha(null, "destino recusado: " + excecao.getMessage());
+            log.warn("entrega {} bloqueada: {}", entrega.getCodigo(), excecao.getMessage());
+            return;
+        }
+
         String assinatura = AssinaturaDeWebhook.gerar(endpoint.getSegredo(), entrega.getCorpo(), Instant.now());
 
         HttpRequest requisicao = HttpRequest.newBuilder()
@@ -68,7 +78,8 @@ public class EntregadorDeWebhooks {
                 .build();
 
         try {
-            HttpResponse<String> resposta = cliente.send(requisicao, HttpResponse.BodyHandlers.ofString());
+            // o corpo da resposta e descartado: so o codigo importa, e ler tudo abriria porta para um endpoint devolver gigabytes
+            HttpResponse<Void> resposta = cliente.send(requisicao, HttpResponse.BodyHandlers.discarding());
 
             if (resposta.statusCode() >= 200 && resposta.statusCode() < 300) {
                 entrega.registrarSucesso(resposta.statusCode());

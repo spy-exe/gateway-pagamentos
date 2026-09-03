@@ -35,8 +35,10 @@ public class WebhookService {
                     "Cada estabelecimento pode manter no maximo " + LIMITE_POR_ESTABELECIMENTO + " endpoints.");
         }
 
-        return endpointRepository.save(
-                new EndpointWebhook(usuario, requisicao.url().trim(), requisicao.descricao()));
+        String url = requisicao.url().trim();
+        DestinoDeWebhook.exigirFormaValida(url);
+
+        return endpointRepository.save(new EndpointWebhook(usuario, url, requisicao.descricao()));
     }
 
     @Transactional(readOnly = true)

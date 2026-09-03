@@ -151,6 +151,21 @@ class WebhookFluxoIT {
     }
 
     @Test
+    @DisplayName("endpoint apontando para a rede interna e recusado")
+    void enderecoInternoNaoPassa() throws Exception {
+        String token = autenticar();
+
+        mockMvc.perform(post("/api/v1/webhooks")
+                        .header(HttpHeaders.AUTHORIZATION, token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"url": "http://169.254.169.254/latest/meta-data/"}"""))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.detail")
+                        .value(org.hamcrest.Matchers.containsString("internos e reservados")));
+    }
+
+    @Test
     @DisplayName("URL sem esquema http e recusada na validacao")
     void urlPrecisaDeEsquema() throws Exception {
         String token = autenticar();
