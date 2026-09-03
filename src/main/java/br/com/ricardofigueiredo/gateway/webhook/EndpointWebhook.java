@@ -79,10 +79,6 @@ public class EndpointWebhook {
         this.ativo = true;
     }
 
-    public Long getId() {
-        return id;
-    }
-
     public String getCodigo() {
         return codigo;
     }

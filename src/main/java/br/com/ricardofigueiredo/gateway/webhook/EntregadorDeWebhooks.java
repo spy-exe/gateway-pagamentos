@@ -2,6 +2,7 @@ package br.com.ricardofigueiredo.gateway.webhook;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -33,14 +34,23 @@ public class EntregadorDeWebhooks {
     private final HttpClient cliente;
     private final Duration tempoLimite;
 
+    @Autowired
     public EntregadorDeWebhooks(EntregaWebhookRepository entregaRepository,
                                 @Value("${gateway.webhook.tempo-limite-segundos:10}") long tempoLimiteSegundos) {
+        this(entregaRepository, tempoLimiteSegundos, HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(5))
+                // seguir redirecionamento devolveria ao atacante o desvio que a
+                // checagem de destino acabou de fechar
+                .followRedirects(HttpClient.Redirect.NEVER)
+                .build());
+    }
+
+    /** O cliente entra por fora para que o teste consiga observar o envio sem abrir socket. */
+    EntregadorDeWebhooks(EntregaWebhookRepository entregaRepository, long tempoLimiteSegundos,
+                         HttpClient cliente) {
         this.entregaRepository = entregaRepository;
         this.tempoLimite = Duration.ofSeconds(tempoLimiteSegundos);
-        this.cliente = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(5))
-                .followRedirects(HttpClient.Redirect.NEVER)
-                .build();
+        this.cliente = cliente;
     }
 
     @Scheduled(fixedDelayString = "${gateway.webhook.intervalo-ms:15000}")

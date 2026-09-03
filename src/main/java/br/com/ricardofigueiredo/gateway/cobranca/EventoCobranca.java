@@ -59,10 +59,6 @@ public class EventoCobranca {
         this.criadoEm = Instant.now();
     }
 
-    public Long getId() {
-        return id;
-    }
-
     public String getTipo() {
         return tipo;
     }

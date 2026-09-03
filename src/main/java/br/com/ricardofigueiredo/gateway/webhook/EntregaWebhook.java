@@ -121,10 +121,6 @@ public class EntregaWebhook {
         this.concluidoEm = null;
     }
 
-    public Long getId() {
-        return id;
-    }
-
     public String getCodigo() {
         return codigo;
     }

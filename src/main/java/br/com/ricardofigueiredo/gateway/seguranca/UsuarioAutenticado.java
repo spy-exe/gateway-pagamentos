@@ -19,10 +19,6 @@ public class UsuarioAutenticado implements UserDetails {
         return usuario;
     }
 
-    public Long getId() {
-        return usuario.getId();
-    }
-
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of();

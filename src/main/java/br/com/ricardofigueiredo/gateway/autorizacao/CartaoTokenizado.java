@@ -90,10 +90,6 @@ public final class CartaoTokenizado {
         return bandeira;
     }
 
-    public YearMonth getValidade() {
-        return validade;
-    }
-
     public String getNomePortador() {
         return nomePortador;
     }

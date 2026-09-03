@@ -10,6 +10,7 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.Date;
 import java.util.Optional;
 
@@ -48,6 +49,10 @@ public class JwtService {
      * adulterado ou assinado com outra chave.
      */
     public Optional<String> emailDoToken(String token) {
+        if (!formaCompactaCanonica(token)) {
+            return Optional.empty();
+        }
+
         try {
             String email = Jwts.parser()
                     .verifyWith(chave)
@@ -58,6 +63,37 @@ public class JwtService {
             return Optional.ofNullable(email);
         } catch (JwtException | IllegalArgumentException excecao) {
             return Optional.empty();
+        }
+    }
+
+    /**
+     * Um JWT assinado tem exatamente tres trechos Base64 URL sem padding. A
+     * conferencia evita representacoes alternativas do mesmo conjunto de
+     * bytes, que alguns decodificadores toleram mesmo com lixo no fim.
+     */
+    private boolean formaCompactaCanonica(String token) {
+        if (token == null) {
+            return false;
+        }
+
+        String[] trechos = token.split("\\.", -1);
+        if (trechos.length != 3) {
+            return false;
+        }
+
+        try {
+            Base64.Decoder decodificador = Base64.getUrlDecoder();
+            Base64.Encoder codificador = Base64.getUrlEncoder().withoutPadding();
+
+            for (String trecho : trechos) {
+                if (trecho.isBlank()
+                        || !codificador.encodeToString(decodificador.decode(trecho)).equals(trecho)) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (IllegalArgumentException excecao) {
+            return false;
         }
     }
 }

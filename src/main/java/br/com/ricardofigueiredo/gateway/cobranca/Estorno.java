@@ -47,16 +47,8 @@ public class Estorno {
         this.criadoEm = Instant.now();
     }
 
-    public Long getId() {
-        return id;
-    }
-
     public String getCodigo() {
         return codigo;
-    }
-
-    public Cobranca getCobranca() {
-        return cobranca;
     }
 
     public long getValorEmCentavos() {
