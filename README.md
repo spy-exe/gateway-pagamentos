@@ -104,13 +104,13 @@ As tabelas são criadas pelo Flyway na subida, a partir de `src/main/resources/d
 ./mvnw test
 ```
 
-São 42 testes divididos em três níveis: as regras de cartão e do autorizador em testes de unidade puros,
+São 110 testes divididos em três níveis: as regras de cartão e do autorizador em testes de unidade puros,
 a máquina de estados da cobrança em cima da entidade de domínio e o fluxo completo em testes de
 integração que sobem o contexto do Spring e chamam a API por HTTP, usando as mesmas migrations do Flyway
 que rodam em produção.
 
 O JaCoCo mede a cobertura e o relatório sai em `target/site/jacoco/index.html`. Hoje o projeto está em
-**92,9% de instruções e 85,5% de ramos**, e `./mvnw verify` reprova abaixo disso. O que falta coberto são
+**92% de instruções e 83% de ramos**, e `./mvnw verify` reprova abaixo disso. O que falta coberto são
 caminhos de borda que ainda não têm teste: o `main`, o filtro JWT com token de usuário removido, alguns
 acessores de entidade e o tratamento de erro de conflito.
 
@@ -146,10 +146,76 @@ curl -X POST http://localhost:8080/api/v1/autenticacao/login \
 | POST | `/api/v1/cobrancas/{codigo}/estornos` | Estorna no todo ou em parte |
 | GET | `/api/v1/cobrancas/{codigo}/estornos` | Lista os estornos da cobrança |
 | GET | `/api/v1/cobrancas/{codigo}/eventos` | Linha do tempo da cobrança |
+| GET | `/api/v1/cobrancas/resumo` | Fechamento do período, somado pelo banco |
+| GET | `/api/v1/cobrancas/movimento` | Volume capturado por dia |
+| GET | `/api/v1/cobrancas/bandeiras` | Participação de cada bandeira |
+| POST | `/api/v1/webhooks` | Cadastra um endpoint e devolve o segredo |
+| GET | `/api/v1/webhooks` | Lista os endpoints, com o segredo mascarado |
+| POST | `/api/v1/webhooks/{codigo}/situacao` | Liga ou desliga o envio |
+| DELETE | `/api/v1/webhooks/{codigo}` | Remove o endpoint e o histórico |
+| GET | `/api/v1/webhooks/{codigo}/entregas` | Histórico de entregas |
+| POST | `/api/v1/webhooks/entregas/{codigo}/reenvio` | Devolve uma entrega para a fila |
+| POST | `/api/v1/webhooks/eco` | Alvo de treino: responde 200 e confere a assinatura recebida |
 | GET | `/saude` | Verificação de disponibilidade, sem autenticação |
 
 Valores trafegam sempre em centavos, como número inteiro. Isso evita erro de arredondamento de ponto
 flutuante e é o formato que os gateways de mercado usam.
+
+## Pix
+
+Cobrança no Pix devolve o campo `pixCopiaECola`, montado no formato EMV QRCPS-MPM
+do Manual de Padrões para Iniciação do Pix. O payload é uma sequência de campos no
+formato identificador, tamanho e valor, com o arranjo `br.gov.bcb.pix` dentro do
+campo 26 e o CRC16 CCITT fechando sobre tudo o que veio antes, inclusive o próprio
+`6304`. O painel desenha o QR a partir dessa string, sem serviço externo.
+
+O código é estruturalmente válido e passa nos leitores, mas aponta para uma chave de
+demonstração: nenhum banco liquida nada a partir dele.
+
+## Parcelamento
+
+De uma a doze vezes, apenas no cartão de crédito, com parcela mínima de R$ 5,00. O
+troco da divisão cai na primeira parcela, que é como as adquirentes fazem, e a
+resposta traz `valorDaParcelaEmCentavos` e `ajusteNaPrimeiraParcelaEmCentavos`
+separados para não esconder o arredondamento.
+
+## Webhooks
+
+O estabelecimento cadastra endpoints e passa a ser avisado de cada mudança:
+`cobranca.autorizada`, `cobranca.capturada`, `cobranca.recusada`,
+`cobranca.cancelada` e `cobranca.estornada`.
+
+A entrega é gravada na mesma transação que muda a cobrança e só depois sai pela
+rede, em processo separado. São duas garantias de uma vez: transação desfeita não
+dispara aviso falso, e processo derrubado não perde aviso já confirmado. Disparar
+HTTP dentro da transação daria o problema oposto nas duas pontas.
+
+Cada envio leva o cabeçalho `Aval-Assinatura` no formato `t=<instante>,v1=<hmac>`. O
+que é assinado não é só o corpo, é a junção `<instante>.<corpo>`. Amarrar o instante
+dentro do material assinado impede reapresentar a requisição depois, porque mudar o
+`t` exigiria refazer o HMAC, e para isso seria preciso o segredo. Do lado de quem
+recebe, a conferência tem duas partes: refazer o HMAC-SHA256 e comparar em tempo
+constante, e recusar o que tiver mais de cinco minutos.
+
+```java
+String material = instante + "." + corpo;
+byte[] esperado = hmacSha256(segredo, material);
+boolean valido = MessageDigest.isEqual(esperado, assinaturaRecebida)
+        && Math.abs(agora - instante) <= 300;
+```
+
+Entrega sem resposta 2xx volta para a fila com espera crescente: um minuto, cinco,
+meia hora, duas horas, seis horas. Depois disso fica registrada como falha, à espera
+de reenvio manual.
+
+Para experimentar sem montar servidor, aponte um endpoint para
+`POST /api/v1/webhooks/eco`: ele responde 200 e devolve a assinatura recebida, e
+com o parâmetro `segredo` diz se ela confere.
+
+A URL de destino passa por duas conferências contra requisição forjada do lado do
+servidor. No cadastro, recusando IP privado e nome local escritos na mão. E de novo
+antes de cada envio, resolvendo o nome, porque um domínio público pode passar a
+apontar para endereço interno depois.
 
 ## Estados da cobrança
 

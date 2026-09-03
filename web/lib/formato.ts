@@ -69,7 +69,7 @@ const BANDEIRAS: Record<Bandeira, string> = {
   MASTERCARD: "Mastercard",
   ELO: "Elo",
   AMEX: "Amex",
-  DESCONHECIDA: "Bandeira nao identificada"
+  DESCONHECIDA: "Nao identificada"
 };
 
 export function rotuloBandeira(bandeira: Bandeira): string {
@@ -108,4 +108,62 @@ export function centavosDeTexto(texto: string): number | null {
   const valor = Number(limpo);
   if (!Number.isFinite(valor)) return null;
   return Math.round(valor * 100);
+}
+
+/** "3x de R$ 33,33" e, quando a divisao nao fecha, o troco na primeira. */
+export function parcelamento(
+  parcelas: number,
+  valorDaParcelaEmCentavos: number,
+  ajusteNaPrimeiraParcelaEmCentavos: number
+): string {
+  if (parcelas <= 1) {
+    return "A vista";
+  }
+
+  const base = `${parcelas}x de ${moeda(valorDaParcelaEmCentavos)}`;
+  return ajusteNaPrimeiraParcelaEmCentavos > 0
+    ? `${base}, com ${moeda(ajusteNaPrimeiraParcelaEmCentavos)} a mais na primeira`
+    : base;
+}
+
+/**
+ * Extrato em CSV. O separador e ponto e virgula e o decimal e virgula, porque
+ * e assim que o Excel em portugues abre o arquivo sem pedir nada.
+ */
+export function extratoEmCsv(cobrancas: Array<Record<string, unknown>>): string {
+  const colunas = [
+    "codigo", "criadoEm", "descricao", "metodo", "status", "parcelas",
+    "valor", "estornado", "bandeira", "ultimosQuatro", "codigoAutorizacao"
+  ];
+
+  const linhas = cobrancas.map((cobranca) => {
+    const cartao = cobranca.cartao as { bandeira?: string; ultimosQuatro?: string } | undefined;
+
+    return [
+      cobranca.codigo,
+      cobranca.criadoEm,
+      String(cobranca.descricao ?? "").replace(/;/g, ","),
+      cobranca.metodo,
+      cobranca.status,
+      cobranca.parcelas,
+      emReaisComVirgula(Number(cobranca.valorEmCentavos ?? 0)),
+      emReaisComVirgula(Number(cobranca.valorEstornadoEmCentavos ?? 0)),
+      cartao?.bandeira ?? "",
+      cartao?.ultimosQuatro ?? "",
+      cobranca.codigoAutorizacao ?? ""
+    ].join(";");
+  });
+
+  return [colunas.join(";"), ...linhas].join("\n");
+}
+
+function emReaisComVirgula(centavos: number): string {
+  return (centavos / 100).toFixed(2).replace(".", ",");
+}
+
+/** Data de hoje menos os dias pedidos, no formato que o input date aceita. */
+export function diasAtras(dias: number): string {
+  const data = new Date();
+  data.setDate(data.getDate() - dias);
+  return data.toISOString().slice(0, 10);
 }

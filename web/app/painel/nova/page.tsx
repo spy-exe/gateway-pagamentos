@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import PlacaGravada from "@/components/PlacaGravada";
 import { api, ErroDaApi, type MetodoPagamento } from "@/lib/api";
-import { agruparNumero, bandeiraDoNumero, moeda } from "@/lib/formato";
+import { agruparNumero, bandeiraDoNumero, moeda, parcelamento } from "@/lib/formato";
 import { lerSessao } from "@/lib/sessao";
 
 const CARTOES_DE_TESTE = [
@@ -24,6 +24,7 @@ export default function NovaCobranca() {
   const [descricao, setDescricao] = useState("");
   const [metodo, setMetodo] = useState<MetodoPagamento>("CARTAO_CREDITO");
   const [capturaAutomatica, setCapturaAutomatica] = useState(true);
+  const [parcelas, setParcelas] = useState(1);
   const [numero, setNumero] = useState("");
   const [validadeMes, setValidadeMes] = useState("12");
   const [validadeAno, setValidadeAno] = useState("2030");
@@ -59,6 +60,7 @@ export default function NovaCobranca() {
           descricao,
           metodo,
           capturaAutomatica,
+          parcelas: metodo === "CARTAO_CREDITO" ? parcelas : 1,
           cartao: usaCartao
             ? {
                 numero: numero.replace(/\D/g, ""),
@@ -173,6 +175,26 @@ export default function NovaCobranca() {
                 />
               </label>
             </>
+          )}
+
+          {metodo === "CARTAO_CREDITO" && (
+            <label className="campo">
+              <span>Parcelamento</span>
+              <select value={parcelas} onChange={(evento) => setParcelas(Number(evento.target.value))}>
+                {Array.from({ length: 12 }, (_, indice) => indice + 1).map((quantidade) => (
+                  <option key={quantidade} value={quantidade} disabled={valorEmCentavos > 0 && valorEmCentavos / quantidade < 500}>
+                    {quantidade === 1
+                      ? "A vista"
+                      : `${quantidade}x${valorEmCentavos > 0 ? ` de ${moeda(Math.floor(valorEmCentavos / quantidade))}` : ""}`}
+                  </option>
+                ))}
+              </select>
+              {parcelas > 1 && valorEmCentavos > 0 && (
+                <em className="campo-erro" style={{ color: "var(--tinta-fraca)" }}>
+                  {parcelamento(parcelas, Math.floor(valorEmCentavos / parcelas), valorEmCentavos % parcelas)}
+                </em>
+              )}
+            </label>
           )}
 
           <label className="campo">

@@ -36,6 +36,10 @@ public final class BrCode {
      */
     public static String gerar(String chave, String nome, String cidade, long valorEmCentavos,
                                String identificador) {
+        if (chave == null || chave.isBlank()) {
+            throw new IllegalArgumentException("a chave Pix do recebedor e obrigatoria");
+        }
+
         String recebedor = higienizar(nome, 25);
         String municipio = higienizar(cidade, 15);
         String txid = txidValido(identificador);

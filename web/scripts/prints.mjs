@@ -154,6 +154,29 @@ async function principal() {
   await espera(1800);
   await print("13-demo-comprovante");
 
+  // 10. um comprovante de Pix, com o QR desenhado a partir do copia e cola
+  await pagina.goto(`${ENDERECO}/painel?`, { waitUntil: "networkidle0" });
+  const codigoPix = await pagina.evaluate(() => {
+    const linhas = [...document.querySelectorAll(".razao-linha")];
+    const alvo = linhas.find((linha) => linha.textContent.includes("Pix"));
+    return alvo ? alvo.getAttribute("href") : null;
+  });
+  if (codigoPix) {
+    await pagina.goto(`${ENDERECO}${codigoPix}`, { waitUntil: "networkidle0" });
+    await espera(1600);
+    await print("14-comprovante-pix");
+  }
+
+  // 11. a tela de webhooks, com as entregas abertas
+  await pagina.goto(`${ENDERECO}/painel/webhooks`, { waitUntil: "networkidle0" });
+  await espera(900);
+  await pagina.evaluate(() => {
+    const botao = [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Ver entregas");
+    botao?.click();
+  });
+  await espera(1600);
+  await print("15-webhooks");
+
   await navegador.close();
 
   if (registro.length > 0) {

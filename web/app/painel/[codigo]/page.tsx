@@ -4,9 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import LinhaConta from "@/components/LinhaConta";
+import QrPix from "@/components/QrPix";
 import SeloDeAval from "@/components/SeloDeAval";
 import { api, ErroDaApi, type Cobranca, type Estorno, type Evento } from "@/lib/api";
-import { dataHora, horario, moeda, rotuloBandeira, rotuloEvento, rotuloMetodo, rotuloStatus } from "@/lib/formato";
+import { dataHora, horario, moeda, parcelamento, rotuloBandeira, rotuloEvento, rotuloMetodo, rotuloStatus } from "@/lib/formato";
 import { lerSessao } from "@/lib/sessao";
 
 export default function DetalheDaCobranca() {
@@ -115,6 +116,16 @@ export default function DetalheDaCobranca() {
           <div className="comprovante-bloco">
             <LinhaConta rotulo="Codigo" valor={cobranca.codigo.replace("cob_", "").slice(0, 16)} />
             <LinhaConta rotulo="Metodo" valor={rotuloMetodo(cobranca.metodo)} />
+            {cobranca.parcelas > 1 && (
+              <LinhaConta
+                rotulo="Parcelamento"
+                valor={parcelamento(
+                  cobranca.parcelas,
+                  cobranca.valorDaParcelaEmCentavos,
+                  cobranca.ajusteNaPrimeiraParcelaEmCentavos
+                )}
+              />
+            )}
             {cobranca.codigoAutorizacao && (
               <LinhaConta rotulo="Autorizacao" valor={cobranca.codigoAutorizacao} />
             )}
@@ -149,6 +160,13 @@ export default function DetalheDaCobranca() {
               </div>
             ))}
           </div>
+
+          {cobranca.pixCopiaECola && (
+            <div className="comprovante-bloco">
+              <p className="etiqueta" style={{ textAlign: "center" }}>Pague com Pix</p>
+              <QrPix copiaECola={cobranca.pixCopiaECola} />
+            </div>
+          )}
 
           <p className="comprovante-rodape">Transacao simulada · sem valor fiscal</p>
         </article>

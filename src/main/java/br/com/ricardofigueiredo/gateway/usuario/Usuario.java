@@ -75,6 +75,19 @@ public class Usuario {
         return cidade;
     }
 
+    /**
+     * Contas criadas antes de o Pix existir ficaram sem chave e sem cidade. O
+     * e-mail e uma chave Pix legitima, entao serve de recurso, e assim nenhum
+     * cadastro antigo impede a geracao do BR Code.
+     */
+    public String chavePixOuEmail() {
+        return chavePix == null || chavePix.isBlank() ? email : chavePix;
+    }
+
+    public String cidadeOuPadrao() {
+        return cidade == null || cidade.isBlank() ? "SAO PAULO" : cidade;
+    }
+
     public Instant getCriadoEm() {
         return criadoEm;
     }

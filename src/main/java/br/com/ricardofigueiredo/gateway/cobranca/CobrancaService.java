@@ -96,12 +96,7 @@ public class CobrancaService {
         }
 
         if (requisicao.metodo() == MetodoPagamento.PIX && resultado.aprovada()) {
-            cobranca.registrarPix(BrCode.gerar(
-                    usuario.getChavePix(),
-                    usuario.getNomeEstabelecimento(),
-                    usuario.getCidade(),
-                    cobranca.getValorEmCentavos(),
-                    cobranca.getCodigo()));
+            cobranca.registrarPix(gerarPix(usuario, cobranca));
         }
 
         registrarEvento(cobranca, resultado.aprovada() ? "AUTORIZACAO" : "RECUSA", null,
@@ -163,9 +158,24 @@ public class CobrancaService {
         return estorno;
     }
 
-    @Transactional(readOnly = true)
+    /**
+     * Nao e somente leitura de proposito. As cobrancas Pix criadas antes de o
+     * BR Code existir ficaram sem o copia e cola, e o codigo e deterministico a
+     * partir de dados que ja estao gravados. Em vez de deixar registro
+     * historico pela metade, ele e completado na primeira vez que alguem abre a
+     * cobranca. Acontece uma vez por registro e nunca reescreve o que ja tem.
+     */
+    @Transactional
     public Cobranca buscar(Usuario usuario, String codigo) {
-        return buscarEntidade(usuario, codigo);
+        Cobranca cobranca = buscarEntidade(usuario, codigo);
+
+        if (cobranca.getMetodo() == MetodoPagamento.PIX
+                && cobranca.getPixCopiaECola() == null
+                && cobranca.getStatus() != StatusCobranca.RECUSADA) {
+            cobranca.registrarPix(gerarPix(usuario, cobranca));
+        }
+
+        return cobranca;
     }
 
     @Transactional(readOnly = true)
@@ -219,6 +229,15 @@ public class CobrancaService {
     @Transactional(readOnly = true)
     public List<Estorno> estornos(Usuario usuario, String codigo) {
         return estornoRepository.findByCobrancaOrderByCriadoEmAsc(buscarEntidade(usuario, codigo));
+    }
+
+    private String gerarPix(Usuario usuario, Cobranca cobranca) {
+        return BrCode.gerar(
+                usuario.chavePixOuEmail(),
+                usuario.getNomeEstabelecimento(),
+                usuario.cidadeOuPadrao(),
+                cobranca.getValorEmCentavos(),
+                cobranca.getCodigo());
     }
 
     private int validarParcelamento(CriarCobrancaRequest requisicao) {

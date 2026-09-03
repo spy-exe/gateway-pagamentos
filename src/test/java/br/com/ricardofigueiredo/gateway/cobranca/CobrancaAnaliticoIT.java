@@ -38,6 +38,12 @@ class CobrancaAnaliticoIT {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private CobrancaRepository cobrancaRepository;
+
+    @Autowired
+    private br.com.ricardofigueiredo.gateway.usuario.UsuarioRepository usuarioRepository;
+
     @Test
     @DisplayName("cobranca no Pix devolve o copia e cola pronto para o QR")
     void pixDevolveCopiaECola() throws Exception {
@@ -218,6 +224,57 @@ class CobrancaAnaliticoIT {
                         .param("ate", "2000-01-01T00:00:00Z")
                         .header(HttpHeaders.AUTHORIZATION, token))
                 .andExpect(jsonPath("$.totalDeItens").value(0));
+    }
+
+    @Test
+    @DisplayName("conta sem chave Pix cadastrada usa o proprio e-mail como chave")
+    void contaSemChaveUsaOEmail() throws Exception {
+        String email = "sem-chave-" + UUID.randomUUID() + "@exemplo.com";
+
+        mockMvc.perform(post("/api/v1/autenticacao/registro")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email": "%s", "senha": "senhaforte123", "nomeEstabelecimento": "Loja"}"""
+                                .formatted(email)))
+                .andExpect(status().isCreated());
+
+        MvcResult login = mockMvc.perform(post("/api/v1/autenticacao/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"email": "%s", "senha": "senhaforte123"}""".formatted(email))).andReturn();
+        String token = "Bearer " + ler(login).get("token").asText();
+
+        MvcResult resultado = mockMvc.perform(post("/api/v1/cobrancas")
+                        .header(HttpHeaders.AUTHORIZATION, token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"valorEmCentavos": 1000, "descricao": "Pix", "metodo": "PIX"}"""))
+                .andReturn();
+
+        // a chave entra crua no campo 01, sem higienizacao: e ela que o banco vai casar
+        assertThat(ler(resultado).get("pixCopiaECola").asText()).contains(email);
+    }
+
+    @Test
+    @DisplayName("cobranca Pix sem copia e cola ganha o codigo ao ser aberta")
+    void pixAntigoGanhaCodigoNaLeitura() throws Exception {
+        String token = autenticar("loja@exemplo.com", "NITEROI");
+
+        MvcResult criada = mockMvc.perform(post("/api/v1/cobrancas")
+                        .header(HttpHeaders.AUTHORIZATION, token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"valorEmCentavos": 3300, "descricao": "Pix", "metodo": "PIX"}"""))
+                .andReturn();
+        String codigo = ler(criada).get("codigo").asText();
+
+        // simula o registro historico, criado antes de o BR Code existir
+        cobrancaRepository.findByCodigoAndUsuario(codigo, usuarioRepository.findAll().get(0))
+                .ifPresent(cobranca -> cobranca.registrarPix(null));
+
+        mockMvc.perform(get("/api/v1/cobrancas/" + codigo).header(HttpHeaders.AUTHORIZATION, token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pixCopiaECola").isNotEmpty());
     }
 
     @Test

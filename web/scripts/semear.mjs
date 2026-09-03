@@ -96,9 +96,12 @@ async function principal() {
     corpo: { email: CONTA.email, senha: CONTA.senha }
   });
 
+  await semearWebhook(token);
+  await semearParceladasEPix(token);
+
   const jaExistem = await chamar("/api/v1/cobrancas?size=1", { token });
   if (jaExistem.totalDeItens >= ROTEIRO.length) {
-    console.log(`conta ja tem ${jaExistem.totalDeItens} cobrancas, nada a fazer`);
+    console.log(`conta ja tem ${jaExistem.totalDeItens} cobrancas, roteiro base ja aplicado`);
     return;
   }
 
@@ -148,6 +151,79 @@ async function principal() {
 
   const resumo = await chamar("/api/v1/cobrancas?size=1", { token });
   console.log(`${criadas} cobrancas criadas, total na conta: ${resumo.totalDeItens}`);
+}
+
+/** Um endpoint apontando para o eco publico, para as entregas aparecerem concluidas. */
+async function semearWebhook(token) {
+  const existentes = await chamar("/api/v1/webhooks", { token });
+  if (existentes.length > 0) {
+    console.log(`webhook ja cadastrado (${existentes.length})`);
+    return;
+  }
+
+  const destino = process.env.WEBHOOK_DEMO ?? "https://api-gateway-aula.malha.app/api/v1/webhooks/eco";
+  const criado = await chamar("/api/v1/webhooks", {
+    metodo: "POST",
+    token,
+    corpo: { url: destino, descricao: "eco de demonstracao" }
+  });
+
+  console.log(`webhook ${criado.codigo} apontando para ${destino}`);
+}
+
+/** Segunda leva: parcelamento e Pix, que so existem a partir da migracao V2. */
+async function semearParceladasEPix(token) {
+  const parceladas = [
+    ["Geladeira, entrada da loja", 249900, 12],
+    ["Fogao seis bocas", 189000, 10],
+    ["Jogo de panelas", 45900, 6],
+    ["Cafeteira expresso", 89900, 8],
+    ["Air fryer", 39900, 3]
+  ];
+
+  const pix = [
+    ["Marmita do dia", 2200],
+    ["Feira da tarde", 8750],
+    ["Bolo de pote", 1500],
+    ["Cesta de cafe da manha", 12900]
+  ];
+
+  const jaTem = await chamar("/api/v1/cobrancas?size=100", { token });
+  if (jaTem.itens.some((cobranca) => cobranca.parcelas > 1)) {
+    console.log("segunda leva ja aplicada");
+    return;
+  }
+
+  for (const [descricao, valor, parcelas] of parceladas) {
+    await chamar("/api/v1/cobrancas", {
+      metodo: "POST",
+      token,
+      chave: `demo-parcelada-${descricao.slice(0, 14)}`,
+      corpo: {
+        valorEmCentavos: valor,
+        descricao,
+        metodo: "CARTAO_CREDITO",
+        parcelas,
+        cartao: {
+          numero: CARTOES.visa,
+          validadeMes: 12,
+          validadeAno: 2030,
+          nomePortador: "Ricardo Figueiredo"
+        }
+      }
+    });
+  }
+
+  for (const [descricao, valor] of pix) {
+    await chamar("/api/v1/cobrancas", {
+      metodo: "POST",
+      token,
+      chave: `demo-pix-${descricao.slice(0, 16)}`,
+      corpo: { valorEmCentavos: valor, descricao, metodo: "PIX" }
+    });
+  }
+
+  console.log(`${parceladas.length} parceladas e ${pix.length} cobrancas Pix criadas`);
 }
 
 principal().catch((erro) => {

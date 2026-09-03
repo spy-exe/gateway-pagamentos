@@ -194,6 +194,36 @@ class WebhookFluxoIT {
     }
 
     @Test
+    @DisplayName("o eco aceita POST sem token e confere a assinatura enviada")
+    void ecoConfereAssinatura() throws Exception {
+        String segredo = "whsec_paraconferir";
+        String corpo = "{\"evento\":\"cobranca.capturada\"}";
+        String assinatura = AssinaturaDeWebhook.gerar(segredo, corpo, java.time.Instant.now());
+
+        mockMvc.perform(post("/api/v1/webhooks/eco")
+                        .param("segredo", segredo)
+                        .header(AssinaturaDeWebhook.CABECALHO, assinatura)
+                        .header("Aval-Evento", "cobranca.capturada")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpo))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.assinaturaConfere").value(true))
+                .andExpect(jsonPath("$.evento").value("cobranca.capturada"));
+    }
+
+    @Test
+    @DisplayName("o eco denuncia assinatura que nao bate")
+    void ecoRecusaAssinaturaErrada() throws Exception {
+        mockMvc.perform(post("/api/v1/webhooks/eco")
+                        .param("segredo", "whsec_certo")
+                        .header(AssinaturaDeWebhook.CABECALHO, "t=1,v1=abc")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.assinaturaConfere").value(false));
+    }
+
+    @Test
     @DisplayName("endpoint inexistente devolve 404")
     void endpointInexistente() throws Exception {
         String token = autenticar();

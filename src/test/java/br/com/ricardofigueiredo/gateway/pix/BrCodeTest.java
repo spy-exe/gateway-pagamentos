@@ -66,6 +66,17 @@ class BrCodeTest {
     }
 
     @Test
+    @DisplayName("sem chave do recebedor o codigo nao e gerado")
+    void chaveObrigatoria() {
+        org.assertj.core.api.Assertions
+                .assertThatThrownBy(() -> BrCode.gerar(null, "Loja", "Niteroi", 1000, "cob_1"))
+                .isInstanceOf(IllegalArgumentException.class);
+        org.assertj.core.api.Assertions
+                .assertThatThrownBy(() -> BrCode.gerar("  ", "Loja", "Niteroi", 1000, "cob_1"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     @DisplayName("o txid fica em 25 caracteres alfanumericos, ou vira o coringa")
     void txidRespeitaOLimite() {
         assertThat(BrCode.txidValido("cob_abc123")).isEqualTo("cobabc123");

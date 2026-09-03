@@ -22,6 +22,7 @@ public class SegurancaConfig {
     private static final String[] ROTAS_PUBLICAS = {
             "/api/v1/autenticacao/registro",
             "/api/v1/autenticacao/login",
+            "/api/v1/webhooks/eco",
             "/v3/api-docs",
             "/v3/api-docs/**",
             "/swagger-ui.html",
