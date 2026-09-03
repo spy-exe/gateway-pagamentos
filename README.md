@@ -66,6 +66,8 @@ Telas em `web/prints/`.
 
 ![Links de pagamento](web/prints/16-links-de-pagamento.png)
 
+![Checkout público](web/prints/17-checkout-publico.png)
+
 ## Stack
 
 - Java 21

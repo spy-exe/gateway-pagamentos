@@ -179,11 +179,13 @@ async function principal() {
 
   // 12. links de pagamento e o checkout publico da conta demo
   await pagina.goto(`${ENDERECO}/painel/links`, { waitUntil: "networkidle0" });
+  await pagina.evaluate(() => window.scrollTo(0, 0));
   await print("16-links-de-pagamento");
 
   const linkPublico = await pagina.evaluate(() => {
-    const ancora = [...document.querySelectorAll('a[href^="/pagar/"]')]
-      .find((item) => item.textContent.trim() === "Abrir");
+    const cartaoAtivo = [...document.querySelectorAll(".link-cartao")]
+      .find((item) => item.textContent.toLowerCase().includes("aceitando pagamentos"));
+    const ancora = cartaoAtivo?.querySelector('a[href^="/pagar/"]');
     return ancora?.getAttribute("href") ?? null;
   });
   if (linkPublico) {
